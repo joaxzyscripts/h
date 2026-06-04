@@ -3029,12 +3029,12 @@ local Library do
             Items["Chevron"]:Tween(nil, {Rotation = Section.Collapsed and -90 or 0})
         end
 
-        function Section:Toggle()
+        function Section:ToggleCollapse()
             Section:SetCollapsed(not Section.Collapsed)
         end
 
         Items["HeaderButton"]:Connect("MouseButton1Down", function()
-            Section:Toggle()
+            Section:ToggleCollapse()
         end)
 
         function Section:SetVisibility(Bool)
