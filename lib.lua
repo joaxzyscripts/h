@@ -223,6 +223,46 @@ local Library do
     Library.Theme = TableClone(Themes["Default"])
     Library.Themes = Themes
 
+    -- ════════════════════════════════════════════════════
+    -- Visual tokens & UX presets
+    -- ════════════════════════════════════════════════════
+    Library.Radius = {
+        Small  = 3,
+        Medium = 4,
+        Large  = 6,
+        Pill   = 999,
+    }
+
+    Library.Spacing = {
+        Tight  = 4,
+        Normal = 7,
+        Loose  = 14,
+    }
+
+    Library.NotifTypes = {
+        Info    = { Color = FromRGB(80, 140, 255),  Icon = "i" },
+        Success = { Color = FromRGB(70, 200, 130),  Icon = "+" },
+        Warning = { Color = FromRGB(255, 180, 70),  Icon = "!" },
+        Error   = { Color = FromRGB(235, 80, 80),   Icon = "x" },
+    }
+
+    -- Notification queue/visibility limits
+    Library.MaxNotifications  = 5
+    Library.NotificationQueue = { }
+    Library.ActiveNotifications = { }
+
+    -- Global search registry (Ctrl+F across pages/subpages/sections)
+    Library.SearchIndex = { }
+    Library.SearchOverlayData = {
+        Built = false,
+        Frame = nil,
+        Input = nil,
+        Results = nil,
+        Layout = nil,
+        Visible = false,
+        Window = nil,
+    }
+
     -- Tweening
     local Tween = { } do
         Tween.__index = Tween
@@ -559,6 +599,125 @@ local Library do
         end
 
         return getcustomasset(self.Folders.Assets .. "/" .. ImageData[1])
+    end
+
+    -- ════════════════════════════════════════════════════
+    -- Convenience helpers
+    -- ════════════════════════════════════════════════════
+    Library.AutoHideScrollbar = function(self, Scroller, Hover)
+        local Inst = Scroller.Instance or Scroller
+        Hover = Hover or Inst
+
+        Inst.ScrollBarImageTransparency = 1
+
+        Library:Connect(Hover.MouseEnter, function()
+            Tween:Create(Inst, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 0}, true)
+        end)
+
+        Library:Connect(Hover.MouseLeave, function()
+            Tween:Create(Inst, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 1}, true)
+        end)
+    end
+
+    Library.AddDropShadow = function(self, Parent, Options)
+        Options = Options or { }
+
+        local Shadow = Instances:Create("ImageLabel", {
+            Parent = Parent.Instance or Parent,
+            Name = "\0",
+            AnchorPoint = Vector2New(0.5, 0.5),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Image = "rbxassetid://112971167999062",
+            ImageColor3 = Options.Color or FromRGB(0, 0, 0),
+            ImageTransparency = Options.Transparency or 0.55,
+            Position = UDim2New(0.5, 0, 0.5, 0),
+            ScaleType = Enum.ScaleType.Slice,
+            SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+            SliceScale = Options.SliceScale or 0.6,
+            Size = UDim2New(1, Options.Padding or 36, 1, Options.Padding or 36),
+            ZIndex = Options.ZIndex or -1,
+            BackgroundColor3 = FromRGB(255, 255, 255),
+        })
+
+        if Options.AccentTinted then 
+            Shadow:AddToTheme({ImageColor3 = "Accent"})
+        end
+
+        return Shadow
+    end
+
+    Library.AddFocusGlow = function(self, Stroke, Trigger)
+        local StrokeInst = Stroke.Instance or Stroke
+        local TriggerInst = Trigger.Instance or Trigger
+        local Original = StrokeInst.Color
+
+        if TriggerInst:IsA("TextBox") then 
+            Library:Connect(TriggerInst.Focused, function()
+                Stroke:ChangeItemTheme({Color = "Accent"})
+                Tween:Create(StrokeInst, nil, {Color = Library.Theme.Accent, Thickness = 1.4}, true)
+            end)
+
+            Library:Connect(TriggerInst.FocusLost, function()
+                Stroke:ChangeItemTheme({Color = "Border"})
+                Tween:Create(StrokeInst, nil, {Color = Library.Theme.Border, Thickness = 1}, true)
+            end)
+        else
+            Library:Connect(TriggerInst.MouseEnter, function()
+                Tween:Create(StrokeInst, nil, {Color = Library.Theme.Accent}, true)
+            end)
+            Library:Connect(TriggerInst.MouseLeave, function()
+                Tween:Create(StrokeInst, nil, {Color = Original}, true)
+            end)
+        end
+    end
+
+    Library.Ripple = function(self, Host, X, Y, Color)
+        local HostInst = Host.Instance or Host
+        if not HostInst or not HostInst.Parent then 
+            return
+        end
+
+        local OldClips = HostInst.ClipsDescendants
+        HostInst.ClipsDescendants = true
+
+        local AbsPos = HostInst.AbsolutePosition
+        local AbsSize = HostInst.AbsoluteSize
+
+        local LocalX = (X or (AbsPos.X + AbsSize.X / 2)) - AbsPos.X
+        local LocalY = (Y or (AbsPos.Y + AbsSize.Y / 2)) - AbsPos.Y
+
+        local MaxDistance = math.sqrt(AbsSize.X * AbsSize.X + AbsSize.Y * AbsSize.Y)
+
+        local Ripple = InstanceNew("Frame")
+        Ripple.Name = "\0"
+        Ripple.AnchorPoint = Vector2New(0.5, 0.5)
+        Ripple.Position = UDim2New(0, LocalX, 0, LocalY)
+        Ripple.Size = UDim2New(0, 0, 0, 0)
+        Ripple.BackgroundColor3 = Color or FromRGB(255, 255, 255)
+        Ripple.BackgroundTransparency = 0.7
+        Ripple.BorderSizePixel = 0
+        Ripple.ZIndex = (HostInst.ZIndex or 1) + 1
+        Ripple.Parent = HostInst
+
+        local Corner = InstanceNew("UICorner")
+        Corner.CornerRadius = UDimNew(1, 0)
+        Corner.Parent = Ripple
+
+        Tween:Create(Ripple, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2New(0, MaxDistance * 2, 0, MaxDistance * 2),
+            BackgroundTransparency = 1,
+        }, true)
+
+        task.delay(0.5, function()
+            if Ripple and Ripple.Parent then 
+                Ripple:Destroy()
+            end
+            if HostInst and HostInst.Parent then 
+                HostInst.ClipsDescendants = OldClips
+            end
+        end)
     end
 
     Library.Round = function(self, Number, Float)
@@ -1312,11 +1471,20 @@ local Library do
         end
     end
 
-    Library.FadeItem = function(self, Item, Property, Visibility, Speed)
+    Library.FadeItem = function(self, Item, Property, Visibility, Speed, Delay)
         local OldTransparency = Item[Property]
         Item[Property] = Visibility and 1 or OldTransparency
 
-        local NewTween = Tween:Create(Item, TweenInfo.new(Speed or Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction), {
+        local Info = TweenInfo.new(
+            Speed or Library.Tween.Time,
+            Library.Tween.Style,
+            Library.Tween.Direction,
+            0,
+            false,
+            tonumber(Delay) or 0
+        )
+
+        local NewTween = Tween:Create(Item, Info, {
             [Property] = Visibility and OldTransparency or 1
         }, true)
 
@@ -1330,132 +1498,380 @@ local Library do
         return NewTween
     end
 
-    Library.Notification = function(self, Text, Description, Duration)
-        local Items = { } do
-            Items["Notification"] = Instances:Create("Frame", {
-                Parent = Library.NotifHolder.Instance,
-                Name = "\0",
-                BorderColor3 = FromRGB(0, 0, 0),
-                BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.XY,
-                BackgroundColor3 = FromRGB(11, 11, 11)
-            })  Items["Notification"]:AddToTheme({BackgroundColor3 = "Inline"})
+    -- ════════════════════════════════════════════════════
+    -- Notifications (typed, queued, with progress + handle)
+    -- ════════════════════════════════════════════════════
+    Library._BuildNotification = function(self, Options)
+        local TypeData = self.NotifTypes[Options.Type] or self.NotifTypes.Info
 
-            Instances:Create("UICorner", {
-                Parent = Items["Notification"].Instance,
-                CornerRadius = UDimNew(0, 4)
-            }) 
+        local Items = { }
 
-            Items["Title"] = Instances:Create("TextLabel", {
-                Parent = Items["Notification"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(255, 255, 255),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = Text,
-                Name = "\0",
-                Size = UDim2New(0, 0, 0, 15),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true,
-                AutomaticSize = Enum.AutomaticSize.XY,
-                TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
-
-            Instances:Create("UIPadding", {
-                Parent = Items["Notification"].Instance,
-                PaddingTop = UDimNew(0, 5),
-                PaddingBottom = UDimNew(0, 8),
-                PaddingRight = UDimNew(0, 8),
-                PaddingLeft = UDimNew(0, 8)
-            }) 
-
-            Items["Description"] = Instances:Create("TextLabel", {
-                Parent = Items["Notification"].Instance,
-                TextWrapped = true,
-                Name = "====sa0dSA=DSAJGjmsaM",
-                TextColor3 = FromRGB(255, 255, 255),
-                TextTransparency = 0.5,
-                Text = Description,
-                Size = UDim2New(0, 0, 0, 15),
-                Position = UDim2New(0, 0, 0, 18),
-                BorderSizePixel = 0,
-                BorderColor3 = FromRGB(0, 0, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                FontFace = Library.Font,
-                AutomaticSize = Enum.AutomaticSize.XY,
-                TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Description"]:AddToTheme({TextColor3 = "Text"})
-        end
-
-        Instances:Create("Frame", {
-            Parent = Items["Notification"].Instance,
-            Size = UDim2New(0, 3, 1, -10),
-            Position = UDim2New(0, -4, 0, 5),
+        Items["Notification"] = Instances:Create("Frame", {
+            Parent = self.NotifHolder.Instance,
+            Name = "\0",
+            BorderColor3 = FromRGB(0, 0, 0),
             BorderSizePixel = 0,
-            ZIndex = 5,
-            BackgroundColor3 = Library.Theme.Accent
-        }):AddToTheme({BackgroundColor3 = "Accent"})
+            AutomaticSize = Enum.AutomaticSize.Y,
+            Size = UDim2New(0, 270, 0, 0),
+            ClipsDescendants = true,
+            BackgroundColor3 = FromRGB(11, 11, 11)
+        })  Items["Notification"]:AddToTheme({BackgroundColor3 = "Inline"})
 
         Instances:Create("UICorner", {
-            Parent = Items["Notification"].Instance:FindFirstChild("\0") or Items["Notification"].Instance,
+            Parent = Items["Notification"].Instance,
+            CornerRadius = UDimNew(0, self.Radius.Medium)
+        }) 
+
+        Instances:Create("UIStroke", {
+            Parent = Items["Notification"].Instance,
+            Color = FromRGB(24, 24, 24),
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        }):AddToTheme({Color = "Border"})
+
+        Instances:Create("UIPadding", {
+            Parent = Items["Notification"].Instance,
+            PaddingTop = UDimNew(0, 7),
+            PaddingBottom = UDimNew(0, 9),
+            PaddingRight = UDimNew(0, 10),
+            PaddingLeft = UDimNew(0, 30)
+        }) 
+
+        -- Type-coloured accent strip
+        Items["Strip"] = Instances:Create("Frame", {
+            Parent = Items["Notification"].Instance,
+            Size = UDim2New(0, 3, 1, -14),
+            Position = UDim2New(0, -23, 0, 7),
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            ZIndex = 5,
+            BackgroundColor3 = TypeData.Color,
+        })
+
+        Instances:Create("UICorner", {
+            Parent = Items["Strip"].Instance,
             CornerRadius = UDimNew(0, 2)
         })
 
-        Items["Notification"].Instance.BackgroundTransparency = 1
-        local OldSize = Items["Notification"].Instance.AbsoluteSize
-        Items["Notification"].Instance.Size = UDim2New(0, 0, 0, 0)
-        for Index, Value in Items["Notification"].Instance:GetDescendants() do
-            if Value:IsA("UIStroke") then 
-                Value.Transparency = 1
-            elseif Value:IsA("TextLabel") then 
-                Value.TextTransparency = 1
-            elseif Value:IsA("Frame") then 
-                Value.BackgroundTransparency = 1
+        -- Type icon (circle + glyph)
+        Items["IconRing"] = Instances:Create("Frame", {
+            Parent = Items["Notification"].Instance,
+            Size = UDim2New(0, 14, 0, 14),
+            Position = UDim2New(0, -16, 0, 6),
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            ZIndex = 5,
+            BackgroundColor3 = TypeData.Color,
+        })
+
+        Instances:Create("UICorner", {
+            Parent = Items["IconRing"].Instance,
+            CornerRadius = UDimNew(1, 0)
+        })
+
+        Items["IconText"] = Instances:Create("TextLabel", {
+            Parent = Items["IconRing"].Instance,
+            FontFace = self.BoldFont,
+            Text = TypeData.Icon,
+            TextColor3 = FromRGB(255, 255, 255),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Size = UDim2New(1, 0, 1, 0),
+            TextSize = 11,
+            ZIndex = 6,
+        })
+
+        -- Title + body
+        Items["Title"] = Instances:Create("TextLabel", {
+            Parent = Items["Notification"].Instance,
+            FontFace = self.BoldFont,
+            TextColor3 = FromRGB(255, 255, 255),
+            BorderColor3 = FromRGB(0, 0, 0),
+            Text = tostring(Options.Title or ""),
+            Name = "\0",
+            Size = UDim2New(1, 0, 0, 15),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextWrapped = true,
+            AutomaticSize = Enum.AutomaticSize.Y,
+            TextSize = 13,
+            BackgroundColor3 = FromRGB(255, 255, 255)
+        })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
+
+        Items["Description"] = Instances:Create("TextLabel", {
+            Parent = Items["Notification"].Instance,
+            FontFace = self.Font,
+            TextWrapped = true,
+            Name = "====sa0dSA=DSAJGjmsaM",
+            TextColor3 = FromRGB(255, 255, 255),
+            TextTransparency = 0.45,
+            Text = tostring(Options.Description or ""),
+            Size = UDim2New(1, 0, 0, 15),
+            Position = UDim2New(0, 0, 0, 18),
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            AutomaticSize = Enum.AutomaticSize.Y,
+            TextSize = 13,
+            BackgroundColor3 = FromRGB(255, 255, 255)
+        })  Items["Description"]:AddToTheme({TextColor3 = "Text"})
+
+        -- Progress bar (depletes over Duration)
+        Items["ProgressTrack"] = Instances:Create("Frame", {
+            Parent = Items["Notification"].Instance,
+            Name = "\0",
+            AnchorPoint = Vector2New(0, 1),
+            Position = UDim2New(0, -20, 1, 4),
+            Size = UDim2New(1, 30, 0, 2),
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            BackgroundTransparency = 0.7,
+            ZIndex = 5,
+            BackgroundColor3 = FromRGB(40, 40, 50),
+        })
+
+        Items["ProgressFill"] = Instances:Create("Frame", {
+            Parent = Items["ProgressTrack"].Instance,
+            Name = "\0",
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Size = UDim2New(1, 0, 1, 0),
+            ZIndex = 6,
+            BackgroundColor3 = TypeData.Color,
+        })
+
+        return Items, TypeData
+    end
+
+    Library._ShowNotificationFromQueue = function(self)
+        if #self.NotificationQueue == 0 then 
+            return
+        end
+
+        if #self.ActiveNotifications >= self.MaxNotifications then 
+            return
+        end
+
+        local Entry = TableRemove(self.NotificationQueue, 1)
+        if not Entry then 
+            return
+        end
+
+        Entry:_Show()
+    end
+
+    Library.Notification = function(self, ...)
+        local Args = { ... }
+        local Options
+
+        if type(Args[1]) == "table" then 
+            Options = Args[1]
+        else
+            Options = {
+                Title       = Args[1],
+                Description = Args[2],
+                Duration    = Args[3],
+                Type        = Args[4],
+            }
+        end
+
+        Options.Title       = tostring(Options.Title or "Notification")
+        Options.Description = tostring(Options.Description or "")
+        Options.Duration    = tonumber(Options.Duration) or 5
+        Options.Type        = Options.Type or "Info"
+
+        -- Heuristic: pick a sensible default type from the title so legacy
+        -- callsites like Library:Notification("Success", ...) auto-style.
+        if Options.Type == "Info" then 
+            local LowerTitle = StringLower(Options.Title)
+            if StringFind(LowerTitle, "error") or StringFind(LowerTitle, "fail") then 
+                Options.Type = "Error"
+            elseif StringFind(LowerTitle, "warn") then 
+                Options.Type = "Warning"
+            elseif StringFind(LowerTitle, "success") or StringFind(LowerTitle, "saved") or StringFind(LowerTitle, "loaded") then 
+                Options.Type = "Success"
             end
         end
 
-        Library:Thread(function()
-            Items["Notification"]:Tween(nil, {BackgroundTransparency = 0, Size = UDim2New(0, OldSize.X, 0, OldSize.Y)})
-            
-            task.wait(0.06)
+        if not self.NotifTypes[Options.Type] then 
+            Options.Type = "Info"
+        end
 
-            for Index, Value in Items["Notification"].Instance:GetDescendants() do
-                if Value:IsA("UIStroke") then
-                    Tween:Create(Value, nil, {Transparency = 0}, true)
-                elseif Value:IsA("TextLabel") then
-                    if Value.Name ~= "====sa0dSA=DSAJGjmsaM" then 
-                        Tween:Create(Value, nil, {TextTransparency = 0}, true)
-                    else
-                        Tween:Create(Value, nil, {TextTransparency = 0.5}, true)
-                    end
-                elseif Value:IsA("Frame") then
-                    Tween:Create(Value, nil, {BackgroundTransparency = 0}, true)
+        local Notification = {
+            Options = Options,
+            Items = nil,
+            TypeData = nil,
+            Closed = false,
+            Shown = false,
+            ProgressTween = nil,
+            CloseThread = nil,
+        }
+
+        function Notification:_Show()
+            if Notification.Shown or Notification.Closed then 
+                return
+            end
+            Notification.Shown = true
+
+            local Items, TypeData = Library:_BuildNotification(Options)
+            Notification.Items = Items
+            Notification.TypeData = TypeData
+
+            TableInsert(Library.ActiveNotifications, Notification)
+
+            local Frame = Items["Notification"].Instance
+
+            -- Initial hidden state for slide+fade in
+            Frame.BackgroundTransparency = 1
+            Frame.Position = UDim2New(0, -20, 0, 0)
+            for _, Descendant in Frame:GetDescendants() do 
+                if Descendant:IsA("UIStroke") then 
+                    Descendant.Transparency = 1
+                elseif Descendant:IsA("TextLabel") then 
+                    Descendant.TextTransparency = 1
+                elseif Descendant:IsA("Frame") then 
+                    Descendant.BackgroundTransparency = 1
                 end
             end
 
-            task.delay(Duration + 0.1, function()
-                for Index, Value in Items["Notification"].Instance:GetDescendants() do
-                    if Value:IsA("UIStroke") then
-                        Tween:Create(Value, nil, {Transparency = 1}, true)
-                    elseif Value:IsA("TextLabel") then
-                        Tween:Create(Value, nil, {TextTransparency = 1}, true)
-                    elseif Value:IsA("Frame") then
-                        Tween:Create(Value, nil, {BackgroundTransparency = 1}, true)
+            Library:Thread(function()
+                Items["Notification"]:Tween(nil, {BackgroundTransparency = 0})
+                Tween:Create(Frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, 0, 0)}, true)
+
+                task.wait(0.05)
+
+                for _, Descendant in Frame:GetDescendants() do 
+                    if Descendant:IsA("UIStroke") then 
+                        Tween:Create(Descendant, nil, {Transparency = 0}, true)
+                    elseif Descendant:IsA("TextLabel") then 
+                        if Descendant.Name == "====sa0dSA=DSAJGjmsaM" then 
+                            Tween:Create(Descendant, nil, {TextTransparency = 0.45}, true)
+                        else
+                            Tween:Create(Descendant, nil, {TextTransparency = 0}, true)
+                        end
+                    elseif Descendant:IsA("Frame") then 
+                        if Descendant == Items["ProgressTrack"].Instance then 
+                            Tween:Create(Descendant, nil, {BackgroundTransparency = 0.7}, true)
+                        else
+                            Tween:Create(Descendant, nil, {BackgroundTransparency = 0}, true)
+                        end
+                    end
+                end
+
+                -- Drive progress bar from full → empty
+                Notification.ProgressTween = Tween:Create(
+                    Items["ProgressFill"].Instance,
+                    TweenInfo.new(Options.Duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+                    {Size = UDim2New(0, 0, 1, 0)},
+                    true
+                )
+
+                Notification.CloseThread = task.delay(Options.Duration, function()
+                    Notification:Close()
+                end)
+            end)
+        end
+
+        function Notification:Close()
+            if Notification.Closed then 
+                return
+            end
+            Notification.Closed = true
+
+            local Index = TableFind(Library.ActiveNotifications, Notification)
+            if Index then 
+                TableRemove(Library.ActiveNotifications, Index)
+            end
+
+            if not Notification.Shown or not Notification.Items then 
+                Library:_ShowNotificationFromQueue()
+                return
+            end
+
+            if Notification.ProgressTween then 
+                Notification.ProgressTween:Pause()
+                Notification.ProgressTween = nil
+            end
+
+            local Items = Notification.Items
+            local Frame = Items["Notification"].Instance
+
+            Library:Thread(function()
+                for _, Descendant in Frame:GetDescendants() do 
+                    if Descendant:IsA("UIStroke") then 
+                        Tween:Create(Descendant, nil, {Transparency = 1}, true)
+                    elseif Descendant:IsA("TextLabel") then 
+                        Tween:Create(Descendant, nil, {TextTransparency = 1}, true)
+                    elseif Descendant:IsA("Frame") then 
+                        Tween:Create(Descendant, nil, {BackgroundTransparency = 1}, true)
                     end
                 end
 
                 task.wait(0.06)
 
-                Items["Notification"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 0)})
+                Items["Notification"]:Tween(nil, {BackgroundTransparency = 1})
+                Tween:Create(Frame, nil, {Position = UDim2New(0, -30, 0, 0), Size = UDim2New(0, 0, 0, 0)}, true)
 
-                task.wait(0.5)
+                task.wait(0.4)
                 Items["Notification"]:Clean()
+
+                Library:_ShowNotificationFromQueue()
             end)
-        end)
+        end
+
+        function Notification:SetTitle(Text)
+            Options.Title = tostring(Text or "")
+            if Notification.Items and Notification.Items["Title"] then 
+                Notification.Items["Title"].Instance.Text = Options.Title
+            end
+        end
+
+        function Notification:SetDescription(Text)
+            Options.Description = tostring(Text or "")
+            if Notification.Items and Notification.Items["Description"] then 
+                Notification.Items["Description"].Instance.Text = Options.Description
+            end
+        end
+
+        function Notification:Update(Patch)
+            if type(Patch) ~= "table" then 
+                return
+            end
+            if Patch.Title ~= nil then 
+                Notification:SetTitle(Patch.Title)
+            end
+            if Patch.Description ~= nil then 
+                Notification:SetDescription(Patch.Description)
+            end
+            if Patch.Type ~= nil and Library.NotifTypes[Patch.Type] and Notification.Items then 
+                local NewType = Library.NotifTypes[Patch.Type]
+                Notification.TypeData = NewType
+                Notification.Items["Strip"]:Tween(nil, {BackgroundColor3 = NewType.Color})
+                Notification.Items["IconRing"]:Tween(nil, {BackgroundColor3 = NewType.Color})
+                Notification.Items["IconText"].Instance.Text = NewType.Icon
+                Notification.Items["ProgressFill"]:Tween(nil, {BackgroundColor3 = NewType.Color})
+            end
+        end
+
+        function Notification:SetProgress(Value)
+            -- Manual progress 0..1 (pauses auto-deplete)
+            if Notification.ProgressTween then 
+                Notification.ProgressTween:Pause()
+                Notification.ProgressTween = nil
+            end
+
+            if Notification.Items and Notification.Items["ProgressFill"] then 
+                local Clamped = MathClamp(tonumber(Value) or 0, 0, 1)
+                Notification.Items["ProgressFill"]:Tween(nil, {Size = UDim2New(Clamped, 0, 1, 0)})
+            end
+        end
+
+        TableInsert(self.NotificationQueue, Notification)
+        self:_ShowNotificationFromQueue()
+
+        return Notification
     end
 
     Library.CreateColorpicker = function(self, Data)
@@ -1545,7 +1961,7 @@ local Library do
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["ColorpickerWindow"].Instance,
                 ImageColor3 = FromRGB(0, 0, 0),
-                ImageTransparency = 0.5799999833106995,
+                ImageTransparency = 0.35,
                 AnchorPoint = Vector2New(0.5, 0.5),
                 Image = "rbxassetid://112971167999062",
                 ZIndex = -1,
@@ -1555,9 +1971,9 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 BackgroundTransparency = 1,
                 Position = UDim2New(0.5, 0, 0.5, 0),
-                SliceScale = 0.6000000238418579,
+                SliceScale = 0.7,
                 Name = "\0",
-                Size = UDim2New(1, 55, 1, 55),
+                Size = UDim2New(1, 80, 1, 80),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  
 
@@ -2170,6 +2586,457 @@ local Library do
         return Colorpicker
     end
 
+    -- ════════════════════════════════════════════════════
+    -- Global element search (Ctrl+F across pages)
+    -- ════════════════════════════════════════════════════
+    Library.BuildSearchOverlay = function(self)
+        if self.SearchOverlayData.Built then 
+            return
+        end
+        self.SearchOverlayData.Built = true
+
+        local Backdrop = Instances:Create("TextButton", {
+            Parent = self.Holder.Instance,
+            Name = "\0",
+            AutoButtonColor = false,
+            Text = "",
+            BackgroundColor3 = FromRGB(0, 0, 0),
+            BackgroundTransparency = 0.55,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Size = UDim2New(1, 0, 1, 0),
+            Position = UDim2New(0, 0, 0, 0),
+            ZIndex = 6000,
+            Visible = false,
+        })
+
+        local Frame = Instances:Create("Frame", {
+            Parent = Backdrop.Instance,
+            Name = "\0",
+            AnchorPoint = Vector2New(0.5, 0),
+            Position = UDim2New(0.5, 0, 0, 80),
+            Size = UDim2New(0, 420, 0, 280),
+            BackgroundColor3 = FromRGB(14, 14, 14),
+            BorderColor3 = FromRGB(0, 0, 0),
+            BorderSizePixel = 0,
+            ZIndex = 6010,
+            ClipsDescendants = true,
+        })  Frame:AddToTheme({BackgroundColor3 = "Background"})
+
+        Instances:Create("UICorner", {
+            Parent = Frame.Instance,
+            CornerRadius = UDimNew(0, self.Radius.Large)
+        })
+
+        Instances:Create("UIStroke", {
+            Parent = Frame.Instance,
+            Color = FromRGB(24, 24, 24),
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        }):AddToTheme({Color = "Border"})
+
+        self:AddDropShadow(Frame, { Padding = 60, Transparency = 0.45, ZIndex = 6005 })
+
+        local Input = Instances:Create("TextBox", {
+            Parent = Frame.Instance,
+            FontFace = self.Font,
+            ClearTextOnFocus = false,
+            PlaceholderColor3 = FromRGB(160, 160, 175),
+            PlaceholderText = "Search every toggle, slider, dropdown...",
+            Text = "",
+            Name = "\0",
+            TextColor3 = FromRGB(255, 255, 255),
+            BorderColor3 = FromRGB(0, 0, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(11, 11, 11),
+            Position = UDim2New(0, 12, 0, 12),
+            Size = UDim2New(1, -24, 0, 32),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextSize = 14,
+            ZIndex = 6011,
+        })  Input:AddToTheme({BackgroundColor3 = "Inline", TextColor3 = "Text"})
+
+        Instances:Create("UICorner", {
+            Parent = Input.Instance,
+            CornerRadius = UDimNew(0, self.Radius.Medium)
+        })
+
+        local InputStroke = Instances:Create("UIStroke", {
+            Parent = Input.Instance,
+            Color = FromRGB(24, 24, 24),
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        })  InputStroke:AddToTheme({Color = "Border"})
+
+        Instances:Create("UIPadding", {
+            Parent = Input.Instance,
+            PaddingLeft = UDimNew(0, 12),
+            PaddingRight = UDimNew(0, 36)
+        })
+
+        Instances:Create("TextLabel", {
+            Parent = Input.Instance,
+            FontFace = self.BoldFont,
+            Text = "ESC",
+            TextColor3 = FromRGB(160, 160, 175),
+            TextSize = 11,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            AnchorPoint = Vector2New(1, 0.5),
+            Position = UDim2New(1, 24, 0.5, 0),
+            Size = UDim2New(0, 30, 0, 14),
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 6012,
+        })
+
+        local Hint = Instances:Create("TextLabel", {
+            Parent = Frame.Instance,
+            FontFace = self.Font,
+            Text = "Type to filter. Click a result to jump.",
+            TextColor3 = FromRGB(140, 140, 155),
+            TextTransparency = 0.2,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Position = UDim2New(0, 14, 0, 50),
+            Size = UDim2New(1, -28, 0, 16),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextSize = 12,
+            ZIndex = 6011,
+        })
+
+        local Results = Instances:Create("ScrollingFrame", {
+            Parent = Frame.Instance,
+            Active = true,
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollBarThickness = 2,
+            CanvasSize = UDim2New(0, 0, 0, 0),
+            ScrollBarImageColor3 = self.Theme.Accent,
+            MidImage = self:GetImage("Scrollbar"),
+            TopImage = self:GetImage("Scrollbar"),
+            BottomImage = self:GetImage("Scrollbar"),
+            BorderColor3 = FromRGB(0, 0, 0),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            Position = UDim2New(0, 8, 0, 70),
+            Size = UDim2New(1, -16, 1, -78),
+            ZIndex = 6011,
+            BackgroundColor3 = FromRGB(255, 255, 255),
+        })  Results:AddToTheme({ScrollBarImageColor3 = "Accent"})
+
+        local Layout = Instances:Create("UIListLayout", {
+            Parent = Results.Instance,
+            Padding = UDimNew(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        Instances:Create("UIPadding", {
+            Parent = Results.Instance,
+            PaddingLeft = UDimNew(0, 4),
+            PaddingRight = UDimNew(0, 4),
+            PaddingTop = UDimNew(0, 4),
+            PaddingBottom = UDimNew(0, 4)
+        })
+
+        self:AutoHideScrollbar(Results, Frame)
+
+        self.SearchOverlayData.Backdrop = Backdrop
+        self.SearchOverlayData.Frame = Frame
+        self.SearchOverlayData.Input = Input
+        self.SearchOverlayData.Results = Results
+        self.SearchOverlayData.Layout = Layout
+        self.SearchOverlayData.Hint = Hint
+
+        Backdrop:Connect("MouseButton1Down", function()
+            self:CloseSearchOverlay()
+        end)
+
+        Input:Connect("Changed", function(Property)
+            if Property ~= "Text" then 
+                return
+            end
+            self:RefreshSearchOverlay()
+        end)
+
+        self:AddFocusGlow(InputStroke, Input)
+    end
+
+    Library.RegisterSearchEntry = function(self, Entry)
+        if type(Entry) ~= "table" or not Entry.Name then 
+            return
+        end
+        TableInsert(self.SearchIndex, Entry)
+    end
+
+    Library.IndexElement = function(self, Element, Kind)
+        if not Element or type(Element) ~= "table" or not Element.Name then 
+            return
+        end
+        local SubPage = Element.Page
+        local Page = SubPage and SubPage.Page or SubPage
+        if SubPage == Page then 
+            SubPage = nil
+        end
+        self:RegisterSearchEntry({
+            Kind = Kind or "Item",
+            Name = Element.Name,
+            Section = Element.Section,
+            SubPage = SubPage,
+            Page = Page,
+        })
+    end
+
+    Library._JumpToSearchEntry = function(self, Entry)
+        local TargetPage    = Entry.Page
+        local TargetSubPage = Entry.SubPage
+
+        if TargetPage and TargetPage.Window and TargetPage.Window.Pages then 
+            for _, OtherPage in TargetPage.Window.Pages do 
+                OtherPage:Turn(OtherPage == TargetPage)
+            end
+        end
+
+        if TargetSubPage and TargetSubPage.Window and TargetSubPage.Window.SubPages then 
+            for _, OtherSub in TargetSubPage.Window.SubPages do 
+                if OtherSub.Page == TargetSubPage.Page then 
+                    OtherSub:Turn(OtherSub == TargetSubPage)
+                end
+            end
+        end
+
+        -- Try to scroll the section into view & pulse-highlight it
+        local SectionFrame = Entry.Section and Entry.Section.Items and Entry.Section.Items["Section"]
+        if SectionFrame and SectionFrame.Instance then 
+            local Inst = SectionFrame.Instance
+            local Parent = Inst.Parent
+            if Parent and Parent:IsA("ScrollingFrame") then 
+                local TargetY = math.max(0, Inst.AbsolutePosition.Y - Parent.AbsolutePosition.Y - 8)
+                Tween:Create(Parent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {CanvasPosition = Vector2New(0, TargetY)}, true)
+            end
+
+            local Stroke = Inst:FindFirstChildOfClass("UIStroke")
+            if Stroke then 
+                local Original = Stroke.Color
+                Tween:Create(Stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Color = self.Theme.Accent, Thickness = 1.6}, true)
+                task.delay(0.9, function()
+                    Tween:Create(Stroke, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Color = Original, Thickness = 1}, true)
+                end)
+            end
+        end
+
+        self:CloseSearchOverlay()
+    end
+
+    Library._ClearSearchResults = function(self)
+        local Results = self.SearchOverlayData.Results
+        if not Results then 
+            return
+        end
+
+        for _, Child in Results.Instance:GetChildren() do 
+            if Child:IsA("TextButton") then 
+                Child:Destroy()
+            end
+        end
+    end
+
+    Library._BuildSearchResultRow = function(self, Entry)
+        local Results = self.SearchOverlayData.Results
+        local Row = Instances:Create("TextButton", {
+            Parent = Results.Instance,
+            FontFace = self.Font,
+            Text = "",
+            TextColor3 = FromRGB(255, 255, 255),
+            BorderColor3 = FromRGB(0, 0, 0),
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            BackgroundTransparency = 0,
+            BackgroundColor3 = FromRGB(11, 11, 11),
+            Size = UDim2New(1, 0, 0, 38),
+            ZIndex = 6012,
+        })  Row:AddToTheme({BackgroundColor3 = "Inline"})
+
+        Instances:Create("UICorner", {
+            Parent = Row.Instance,
+            CornerRadius = UDimNew(0, self.Radius.Medium)
+        })
+
+        local Stroke = Instances:Create("UIStroke", {
+            Parent = Row.Instance,
+            Color = FromRGB(24, 24, 24),
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        })  Stroke:AddToTheme({Color = "Border"})
+
+        Instances:Create("UIPadding", {
+            Parent = Row.Instance,
+            PaddingLeft = UDimNew(0, 12),
+            PaddingRight = UDimNew(0, 12),
+        })
+
+        local Title = Instances:Create("TextLabel", {
+            Parent = Row.Instance,
+            FontFace = self.BoldFont,
+            Text = tostring(Entry.Name or ""),
+            TextColor3 = FromRGB(255, 255, 255),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2New(1, -70, 0, 16),
+            Position = UDim2New(0, 0, 0, 4),
+            TextSize = 13,
+            ZIndex = 6013,
+        })  Title:AddToTheme({TextColor3 = "Text"})
+
+        local Path = { }
+        if Entry.Page and Entry.Page.Name then TableInsert(Path, Entry.Page.Name) end
+        if Entry.SubPage and Entry.SubPage.Name then TableInsert(Path, Entry.SubPage.Name) end
+        if Entry.Section and Entry.Section.Name then TableInsert(Path, Entry.Section.Name) end
+
+        local Crumbs = Instances:Create("TextLabel", {
+            Parent = Row.Instance,
+            FontFace = self.Font,
+            Text = TableConcat(Path, "  ›  "),
+            TextColor3 = FromRGB(140, 140, 155),
+            BackgroundTransparency = 1,
+            TextTransparency = 0.15,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2New(1, -70, 0, 14),
+            Position = UDim2New(0, 0, 0, 20),
+            TextSize = 11,
+            ZIndex = 6013,
+        })
+
+        local Tag = Instances:Create("TextLabel", {
+            Parent = Row.Instance,
+            FontFace = self.Font,
+            Text = tostring(Entry.Kind or ""),
+            TextColor3 = self.Theme.Accent,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            AnchorPoint = Vector2New(1, 0.5),
+            Position = UDim2New(1, 0, 0.5, 0),
+            Size = UDim2New(0, 60, 0, 14),
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextSize = 11,
+            ZIndex = 6013,
+        })  Tag:AddToTheme({TextColor3 = "Accent"})
+
+        Row:Connect("MouseEnter", function()
+            Row:Tween(nil, {BackgroundColor3 = self.Theme.Element})
+            Stroke:ChangeItemTheme({Color = "Accent"})
+            Tween:Create(Stroke.Instance, nil, {Color = self.Theme.Accent}, true)
+        end)
+
+        Row:Connect("MouseLeave", function()
+            Row:ChangeItemTheme({BackgroundColor3 = "Inline"})
+            Row:Tween(nil, {BackgroundColor3 = self.Theme.Inline})
+            Stroke:ChangeItemTheme({Color = "Border"})
+            Tween:Create(Stroke.Instance, nil, {Color = self.Theme.Border}, true)
+        end)
+
+        Row:Connect("MouseButton1Down", function()
+            self:_JumpToSearchEntry(Entry)
+        end)
+
+        return Row
+    end
+
+    Library.RefreshSearchOverlay = function(self)
+        if not self.SearchOverlayData.Built then 
+            return
+        end
+
+        local Query = StringLower(self.SearchOverlayData.Input.Instance.Text or "")
+        local Hint = self.SearchOverlayData.Hint
+        self:_ClearSearchResults()
+
+        local Matches = { }
+        for _, Entry in self.SearchIndex do 
+            local Name = StringLower(tostring(Entry.Name or ""))
+            local Section = Entry.Section and StringLower(tostring(Entry.Section.Name or "")) or ""
+            local SubPage = Entry.SubPage and StringLower(tostring(Entry.SubPage.Name or "")) or ""
+            local Page    = Entry.Page and StringLower(tostring(Entry.Page.Name or "")) or ""
+
+            if Query == ""
+                or StringFind(Name, Query, 1, true)
+                or StringFind(Section, Query, 1, true)
+                or StringFind(SubPage, Query, 1, true)
+                or StringFind(Page, Query, 1, true)
+            then 
+                TableInsert(Matches, Entry)
+            end
+
+            if #Matches >= 60 then 
+                break
+            end
+        end
+
+        if Hint and Hint.Instance then 
+            if Query == "" then 
+                Hint.Instance.Text = StringFormat("%d items indexed.", #self.SearchIndex)
+            else
+                Hint.Instance.Text = StringFormat("%d match%s for \"%s\"", #Matches, #Matches == 1 and "" or "es", Query)
+            end
+        end
+
+        for _, Entry in Matches do 
+            self:_BuildSearchResultRow(Entry)
+        end
+    end
+
+    Library.OpenSearchOverlay = function(self)
+        self:BuildSearchOverlay()
+        if self.SearchOverlayData.Visible then 
+            return
+        end
+        self.SearchOverlayData.Visible = true
+
+        local Backdrop = self.SearchOverlayData.Backdrop
+        local Frame = self.SearchOverlayData.Frame
+        Backdrop.Instance.Visible = true
+
+        Backdrop.Instance.BackgroundTransparency = 1
+        Frame.Instance.Position = UDim2New(0.5, 0, 0, 60)
+
+        Tween:Create(Backdrop.Instance, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55}, true)
+        Frame:Tween(TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0.5, 0, 0, 80)})
+
+        self.SearchOverlayData.Input.Instance.Text = ""
+        self:RefreshSearchOverlay()
+
+        task.defer(function()
+            if self.SearchOverlayData.Visible and self.SearchOverlayData.Input then 
+                self.SearchOverlayData.Input.Instance:CaptureFocus()
+            end
+        end)
+    end
+
+    Library.CloseSearchOverlay = function(self)
+        if not self.SearchOverlayData.Visible then 
+            return
+        end
+        self.SearchOverlayData.Visible = false
+
+        local Backdrop = self.SearchOverlayData.Backdrop
+        local Frame = self.SearchOverlayData.Frame
+
+        if self.SearchOverlayData.Input and self.SearchOverlayData.Input.Instance then 
+            self.SearchOverlayData.Input.Instance:ReleaseFocus()
+        end
+
+        Tween:Create(Backdrop.Instance, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}, true)
+        Frame:Tween(TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0.5, 0, 0, 60)})
+
+        task.delay(0.25, function()
+            if not self.SearchOverlayData.Visible then 
+                Backdrop.Instance.Visible = false
+            end
+        end)
+    end
+
     Library.Window = function(self, Data)
         Data = Data or { }
 
@@ -2233,6 +3100,17 @@ local Library do
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             }) 
+
+            -- Sidebar depth gradient (subtle vertical fade)
+            Instances:Create("UIGradient", {
+                Parent = Items["Sidebar"].Instance,
+                Rotation = 90,
+                Transparency = NumSequence{
+                    NumSequenceKeypoint(0, 0.05),
+                    NumSequenceKeypoint(0.5, 0),
+                    NumSequenceKeypoint(1, 0.15),
+                }
+            })
 
             Items["PageAccent"] = Instances:Create("Frame", {
                 Parent = Items["Sidebar"].Instance,
@@ -2370,6 +3248,20 @@ local Library do
             }) 
         end
 
+        -- Auto-hide sidebar scrollbar when not hovering the sidebar
+        Library:AutoHideScrollbar(Items["Pages"], Items["Sidebar"])
+
+        -- Subtle floating logo animation (~3s sine wave, ±1.5px)
+        do
+            local LogoBaseY = 12
+            local Phase = 0
+            Library:Connect(RunService.RenderStepped, function(dt)
+                Phase = Phase + dt
+                local Offset = MathSin(Phase * 1.6) * 1.5
+                Items["Logo"].Instance.Position = UDim2New(0.5, 0, 0, LogoBaseY + Offset)
+            end)
+        end
+
         local Debounce = false 
 
         function Window:SetOpen(Bool)
@@ -2396,12 +3288,15 @@ local Library do
                     continue
                 end
 
+                -- Staggered reveal: cap total stagger to ~180ms
+                local Delay = Bool and math.min((Index - 1) * 0.004, 0.18) or 0
+
                 if type(ValueIndex) == "table" then
                     for _, Property in ValueIndex do 
-                        NewTween = Library:FadeItem(Value, Property, Bool, Window.FadeSpeed)
+                        NewTween = Library:FadeItem(Value, Property, Bool, Window.FadeSpeed, Delay)
                     end
                 else
-                    NewTween = Library:FadeItem(Value, ValueIndex, Bool, Window.FadeSpeed)
+                    NewTween = Library:FadeItem(Value, ValueIndex, Bool, Window.FadeSpeed, Delay)
                 end
             end
 
@@ -2418,6 +3313,26 @@ local Library do
 
             if tostring(Input.KeyCode) == Library.MenuKeybind or tostring(Input.UserInputType) == Library.MenuKeybind then
                 Window:SetOpen(not Window.IsOpen)
+            end
+        end)
+
+        -- Ctrl/⌘ + F → global search
+        Library:Connect(UserInputService.InputBegan, function(Input, Gpe)
+            if not Window.IsOpen then 
+                return
+            end
+
+            if Input.KeyCode == Enum.KeyCode.F and not Gpe then 
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+                    or UserInputService:IsKeyDown(Enum.KeyCode.LeftMeta) or UserInputService:IsKeyDown(Enum.KeyCode.RightMeta) then 
+                    if Library.SearchOverlayData.Visible then 
+                        Library:CloseSearchOverlay()
+                    else
+                        Library:OpenSearchOverlay()
+                    end
+                end
+            elseif Input.KeyCode == Enum.KeyCode.Escape and Library.SearchOverlayData.Visible then 
+                Library:CloseSearchOverlay()
             end
         end)
 
@@ -2469,6 +3384,25 @@ local Library do
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Inactive"]:AddToTheme({ImageColor3 = "Image"})
+
+            -- Soft accent halo behind the active page icon
+            Items["Glow"] = Instances:Create("ImageLabel", {
+                Parent = Items["Inactive"].Instance,
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(1, 22, 1, 22),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                Image = "rbxassetid://112971167999062",
+                ImageColor3 = Library.Theme.Accent,
+                ImageTransparency = 1,
+                ScaleType = Enum.ScaleType.Slice,
+                SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+                SliceScale = 0.6,
+                ZIndex = 1,
+                Name = "\0",
+            })  Items["Glow"]:AddToTheme({ImageColor3 = "Accent"})
 
             Items["PageContent"] = Instances:Create("Frame", {
                 Parent = Page.Window.Items["Inline"].Instance,
@@ -2582,6 +3516,7 @@ local Library do
                 Items["PageContent"].Instance.Visible = true
                 Items["PageContent"].Instance.Parent = Page.Window.Items["Inline"].Instance
                 Items["Inactive"]:Tween(nil, {ImageTransparency = 0})
+                Items["Glow"]:Tween(nil, {ImageTransparency = 0.55})
 
                 local Accent = Page.Window.Items["PageAccent"]
                 if Accent then 
@@ -2593,6 +3528,7 @@ local Library do
                 end
             else
                 Items["Inactive"]:Tween(nil, {ImageTransparency = 0.5})
+                Items["Glow"]:Tween(nil, {ImageTransparency = 1})
             end
 
             local Descendants = Items["PageContent"].Instance:GetDescendants()
@@ -3231,6 +4167,7 @@ local Library do
             }
 
             TableInsert(Colorpicker.Page.SearchItems, SearchData)
+            Library:IndexElement(Colorpicker, "Colorpicker")
 
             local Extension = Library:CreateColorpicker(Colorpicker)
             return Extension
@@ -3483,6 +4420,7 @@ local Library do
         }
 
         TableInsert(Toggle.Page.SearchItems, SearchData)
+        Library:IndexElement(Toggle, "Toggle")
 
         Library:BindTooltip(Items["Toggle"], Library:GetDescription(Data))
 
@@ -3653,8 +4591,10 @@ local Library do
             }
 
             TableInsert(SubButton.Page.SearchItems, SearchData)
+            Library:IndexElement(SubButton, "Sub Button")
 
-            SubItems["SubButton"]:Connect("MouseButton1Down", function()
+            SubItems["SubButton"]:Connect("MouseButton1Down", function(X, Y)
+                Library:Ripple(SubItems["SubButton"], X, Y, Library.Theme["Light Accent"])
                 SubButton:Press()
             end)
             
@@ -3668,6 +4608,7 @@ local Library do
         }
 
         TableInsert(Button.Page.SearchItems, SearchData)
+        Library:IndexElement(Button, "Button")
 
         Library:BindTooltip(Items["Button"], Library:GetDescription(Data))
 
@@ -3681,7 +4622,8 @@ local Library do
             Items["Button"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
         end)
 
-        Items["Button"]:Connect("MouseButton1Down", function()
+        Items["Button"]:Connect("MouseButton1Down", function(X, Y)
+            Library:Ripple(Items["Button"], X, Y, Library.Theme["Light Accent"])
             Button:Press()
         end)
 
@@ -3889,6 +4831,7 @@ local Library do
         }
         
         TableInsert(Slider.Page.SearchItems, SearchData)
+        Library:IndexElement(Slider, "Slider")
 
         Library:BindTooltip(Items["Slider"], Library:GetDescription(Data))
 
@@ -3990,6 +4933,19 @@ local Library do
             IsOpen = false,
             Options = { },
         }
+
+        local MultiBadgeThreshold = tonumber(Data.MultiBadgeThreshold) or 3
+
+        local function FormatMultiValue(Values)
+            local Count = #Values
+            if Count == 0 then 
+                return "--"
+            end
+            if Count < MultiBadgeThreshold then 
+                return TableConcat(Values, ", ")
+            end
+            return StringFormat("%d selected", Count)
+        end
 
         local Items = { } do
             Items["Dropdown"] = Instances:Create("Frame", {
@@ -4205,7 +5161,7 @@ local Library do
                     OptionData:Toggle("Active")
                 end
 
-                Items["Value"].Instance.Text = #Dropdown.Value > 0 and TableConcat(Dropdown.Value, ", ") or "--"
+                Items["Value"].Instance.Text = FormatMultiValue(Dropdown.Value)
             else
                 local OptionData = Dropdown.Options[Option]
 
@@ -4360,7 +5316,7 @@ local Library do
 
                     OptionData:Toggle(Index and "Inactive" or "Active")
 
-                    local TextFormat = #Dropdown.Value > 0 and TableConcat(Dropdown.Value, ", ") or "--"
+                    local TextFormat = FormatMultiValue(Dropdown.Value)
 
                     Items["Value"].Instance.Text = TextFormat
                 else
@@ -4412,6 +5368,7 @@ local Library do
         }
 
         TableInsert(Dropdown.Page.SearchItems, SearchData)
+        Library:IndexElement(Dropdown, "Dropdown")
 
         Library:BindTooltip(Items["Dropdown"], Library:GetDescription(Data))
         Library:AddBoxHover(Items["RealDropdown"])
@@ -4510,6 +5467,7 @@ local Library do
             }
 
             TableInsert(Colorpicker.Page.SearchItems, SearchData)
+            Library:IndexElement(Colorpicker, "Colorpicker")
 
             local Extension = Library:CreateColorpicker(Colorpicker)
             return Extension
@@ -4724,6 +5682,7 @@ local Library do
         }
 
         TableInsert(Keybind.Page.SearchItems, SearchData)
+        Library:IndexElement(Keybind, "Keybind")
 
         Library:BindTooltip(Items["Keybind"], Library:GetDescription(Data))
         Library:AddBoxHover(Items["RealKeybind"])
@@ -4909,6 +5868,7 @@ local Library do
         }
 
         TableInsert(Textbox.Page.SearchItems, SearchData)
+        Library:IndexElement(Textbox, "Textbox")
 
         Library:BindTooltip(Items["Textbox"], Library:GetDescription(Data))
 
@@ -5161,6 +6121,7 @@ local Library do
         }
 
         TableInsert(Paragraph.Page.SearchItems, SearchData)
+        Library:IndexElement(Paragraph, "Paragraph")
 
         Paragraph.Items = Items
         return Paragraph
