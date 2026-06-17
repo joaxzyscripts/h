@@ -606,15 +606,15 @@ local Library do
     -- ════════════════════════════════════════════════════
     Library.AutoHideScrollbar = function(self, Scroller, Hover)
         local Inst = Scroller.Instance or Scroller
-        Hover = Hover or Inst
+        local HoverInst = (Hover and (Hover.Instance or Hover)) or Inst
 
         Inst.ScrollBarImageTransparency = 1
 
-        Library:Connect(Hover.MouseEnter, function()
+        Library:Connect(HoverInst.MouseEnter, function()
             Tween:Create(Inst, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 0}, true)
         end)
 
-        Library:Connect(Hover.MouseLeave, function()
+        Library:Connect(HoverInst.MouseLeave, function()
             Tween:Create(Inst, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 1}, true)
         end)
     end
