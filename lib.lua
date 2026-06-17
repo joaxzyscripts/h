@@ -3234,6 +3234,40 @@ local Library do
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             }):AddToTheme({Color = "Border"})
 
+            -- Discoverable search entry point. The Ctrl+F shortcut alone is
+            -- invisible to first-time users; this gives them a button to find
+            -- it, and the tooltip teaches them the keybind.
+            Items["SearchButton"] = Instances:Create("TextButton", {
+                Parent = Items["Sidebar"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 1),
+                Position = UDim2New(0.5, 0, 1, -62),
+                Size = UDim2New(0, 50, 0, 22),
+                Text = "Search",
+                FontFace = Library.Font,
+                TextSize = 12,
+                TextColor3 = FromRGB(230, 230, 240),
+                BackgroundColor3 = FromRGB(20, 20, 28),
+                BorderColor3 = FromRGB(0, 0, 0),
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 3,
+            })  Items["SearchButton"]:AddToTheme({BackgroundColor3 = "Element", TextColor3 = "Text"})
+
+            Instances:Create("UICorner", {
+                Parent = Items["SearchButton"].Instance,
+                CornerRadius = UDimNew(0, 4)
+            })
+
+            Instances:Create("UIStroke", {
+                Parent = Items["SearchButton"].Instance,
+                Color = FromRGB(24, 24, 24),
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            }):AddToTheme({Color = "Border"})
+
+            Library:BindTooltip(Items["SearchButton"], "Search every element  •  Ctrl+F")
+            Library:AddBoxHover(Items["SearchButton"])
+
             Items["Inline"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
                 BorderColor3 = FromRGB(0, 0, 0),
@@ -3313,6 +3347,15 @@ local Library do
 
             if tostring(Input.KeyCode) == Library.MenuKeybind or tostring(Input.UserInputType) == Library.MenuKeybind then
                 Window:SetOpen(not Window.IsOpen)
+            end
+        end)
+
+        -- Sidebar Search button: visible counterpart to the Ctrl+F keybind.
+        Items["SearchButton"]:Connect("MouseButton1Down", function()
+            if Library.SearchOverlayData and Library.SearchOverlayData.Visible then 
+                Library:CloseSearchOverlay()
+            else
+                Library:OpenSearchOverlay()
             end
         end)
 
