@@ -224,6 +224,26 @@ local Library do
     Library.Themes = Themes
 
     -- ════════════════════════════════════════════════════
+    -- Device detection (mobile / touch vs desktop)
+    -- ════════════════════════════════════════════════════
+    -- Prefer the platform hint from UserInputService. Some emulators expose
+    -- both TouchEnabled and MouseEnabled; only classify as mobile when there
+    -- is no mouse available AND touch is present.
+    Library.IsTouch  = UserInputService.TouchEnabled == true
+    Library.IsMobile = (UserInputService.TouchEnabled == true) and (UserInputService.MouseEnabled == false)
+
+    -- Allow manual override for testing (before Library:Window is called).
+    -- Users can call Library.ForceMobile = true to simulate mobile on desktop.
+    Library.ForceMobile = false
+
+    Library.IsMobileMode = function(self)
+        if self.ForceMobile then
+            return true
+        end
+        return self.IsMobile
+    end
+
+    -- ════════════════════════════════════════════════════
     -- Visual tokens & UX presets
     -- ════════════════════════════════════════════════════
     Library.Radius = {
@@ -2515,7 +2535,7 @@ local Library do
         end
 
         Items["Palette"]:Connect("InputBegan", function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then 
                 SlidingPalette = true
                 Colorpicker:SlidePalette(Input)
 
@@ -2528,7 +2548,7 @@ local Library do
         end)
 
         Items["Hue"]:Connect("InputBegan", function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then 
                 SlidingHue = true
                 Colorpicker:SlideHue(Input)
 
@@ -2541,7 +2561,7 @@ local Library do
         end)
 
         Items["Alpha"]:Connect("InputBegan", function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then 
                 SlidingAlpha = true
                 Colorpicker:SlideAlpha(Input)
 
@@ -2558,7 +2578,7 @@ local Library do
         end)
 
         Library:Connect(UserInputService.InputChanged, function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseMovement then
+            if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
                 if SlidingPalette then 
                     Colorpicker:SlidePalette(Input)
                 elseif SlidingHue then 
@@ -2570,7 +2590,7 @@ local Library do
         end)
 
         Library:Connect(UserInputService.InputBegan, function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 and Colorpicker.IsOpen and not Debounce and not Library:IsMouseOverFrame(Items["ColorpickerWindow"]) then
+            if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Colorpicker.IsOpen and not Debounce and not Library:IsMouseOverFrame(Items["ColorpickerWindow"]) then
                 Colorpicker:SetOpen(false)
             end
         end)
@@ -2610,12 +2630,17 @@ local Library do
             Visible = false,
         })
 
+        -- Fit the overlay comfortably inside the current viewport. On phones
+        -- 420x280 spills over the edges, so clamp to viewport-minus-margin.
+        local OverlayW = MathClamp(Camera.ViewportSize.X - 24, 280, 420)
+        local OverlayH = MathClamp(Camera.ViewportSize.Y - 120, 220, 280)
+
         local Frame = Instances:Create("Frame", {
             Parent = Backdrop.Instance,
             Name = "\0",
             AnchorPoint = Vector2New(0.5, 0),
-            Position = UDim2New(0.5, 0, 0, 80),
-            Size = UDim2New(0, 420, 0, 280),
+            Position = UDim2New(0.5, 0, 0, self:IsMobileMode() and 40 or 80),
+            Size = UDim2New(0, OverlayW, 0, OverlayH),
             BackgroundColor3 = FromRGB(14, 14, 14),
             BorderColor3 = FromRGB(0, 0, 0),
             BorderSizePixel = 0,
@@ -3040,11 +3065,31 @@ local Library do
     Library.Window = function(self, Data)
         Data = Data or { }
 
+        local IsMobile = Library:IsMobileMode()
+
+        -- On phones the default 681x480 window barely fits, and centring it
+        -- off the viewport / 3.5 pushes it off-screen. Recompute a size that
+        -- fits comfortably inside the viewport.
+        local RequestedSize = Data.Size or Data.size or UDim2New(0, 681, 0, 480)
+        local ResolvedSize = RequestedSize
+        local ResolvedPosition = UDim2New(0, Camera.ViewportSize.X / 3.5, 0, Camera.ViewportSize.Y / 3.5)
+        local ResolvedAnchor = Vector2New(0, 0)
+
+        if IsMobile then 
+            local Viewport = Camera.ViewportSize
+            local TargetW = MathClamp(Viewport.X - 20, 300, RequestedSize.X.Offset)
+            local TargetH = MathClamp(Viewport.Y - 40, 260, RequestedSize.Y.Offset)
+            ResolvedSize = UDim2New(0, TargetW, 0, TargetH)
+            ResolvedPosition = UDim2New(0.5, 0, 0.5, 0)
+            ResolvedAnchor = Vector2New(0.5, 0.5)
+        end
+
         local Window = {
             Logo = Data.Logo or Data.logo or "123748867365417",
-            Size = Data.Size or Data.size or UDim2New(0, 681, 0, 480),
+            Size = ResolvedSize,
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.2,
             PagePadding = Data.PagePadding or Data.pagepadding or 19,
+            IsMobile = IsMobile,
 
             Pages = { },
             SubPages = { },
@@ -3057,9 +3102,9 @@ local Library do
             Items["MainFrame"] = Instances:Create("Frame", {
                 Parent = Library.Holder.Instance,
                 BorderColor3 = FromRGB(0, 0, 0),
-                AnchorPoint = Vector2New(0, 0),
+                AnchorPoint = ResolvedAnchor,
                 Name = "\0",
-                Position = UDim2New(0, Camera.ViewportSize.X / 3.5, 0, Camera.ViewportSize.Y / 3.5),
+                Position = ResolvedPosition,
                 Size = Window.Size,
                 Visible = false,
                 ZIndex = 2,
@@ -3068,7 +3113,13 @@ local Library do
             })  Items["MainFrame"]:AddToTheme({BackgroundColor3 = "Background"})
 
             Items["MainFrame"]:MakeDraggable()
-            Items["MainFrame"]:MakeResizeable(Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset), Vector2New(9999, 9999))
+
+            -- The resize handle in the bottom-right is fiddly on touchscreens
+            -- and the fit-to-viewport size is already sensible on mobile, so
+            -- skip resizeable behaviour there.
+            if not IsMobile then 
+                Items["MainFrame"]:MakeResizeable(Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset), Vector2New(9999, 9999))
+            end
 
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["MainFrame"].Instance,
@@ -3349,6 +3400,98 @@ local Library do
                 Window:SetOpen(not Window.IsOpen)
             end
         end)
+
+        -- Mobile menu toggle: a floating draggable button so users without a
+        -- keyboard can still open/close the menu (the default keybind is Z).
+        if IsMobile then 
+            local MenuButton = Instances:Create("TextButton", {
+                Parent = Library.Holder.Instance,
+                Name = "\0",
+                AutoButtonColor = false,
+                Text = "",
+                AnchorPoint = Vector2New(0, 0),
+                Position = UDim2New(0, 12, 0, 90),
+                Size = UDim2New(0, 48, 0, 48),
+                BackgroundColor3 = FromRGB(14, 14, 14),
+                BorderColor3 = FromRGB(0, 0, 0),
+                BorderSizePixel = 0,
+                ZIndex = 9000,
+            })  MenuButton:AddToTheme({BackgroundColor3 = "Background"})
+
+            Instances:Create("UICorner", {
+                Parent = MenuButton.Instance,
+                CornerRadius = UDimNew(1, 0)
+            })
+
+            local MenuStroke = Instances:Create("UIStroke", {
+                Parent = MenuButton.Instance,
+                Color = Library.Theme.Accent,
+                Thickness = 1.4,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            })  MenuStroke:AddToTheme({Color = "Accent"})
+
+            Library:AddDropShadow(MenuButton, { Padding = 24, Transparency = 0.55, ZIndex = 8999 })
+
+            local MenuLogo = Instances:Create("ImageLabel", {
+                Parent = MenuButton.Instance,
+                ScaleType = Enum.ScaleType.Fit,
+                BorderColor3 = FromRGB(0, 0, 0),
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(0, 30, 0, 30),
+                Image = "rbxassetid://" .. Window.Logo,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ZIndex = 9001,
+                BackgroundColor3 = FromRGB(255, 255, 255),
+            })  MenuLogo:AddToTheme({ImageColor3 = "Image"})
+
+            MenuButton:MakeDraggable()
+
+            -- Distinguish a "tap" (short press with negligible movement)
+            -- from a drag so dragging the button around doesn't accidentally
+            -- toggle the menu.
+            local PressStart, PressStartPos
+            local DragThreshold = 6 -- pixels
+
+            MenuButton:Connect("InputBegan", function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then 
+                    PressStart = tick()
+                    PressStartPos = Input.Position
+                end
+            end)
+
+            MenuButton:Connect("InputEnded", function(Input)
+                if Input.UserInputType ~= Enum.UserInputType.MouseButton1 and Input.UserInputType ~= Enum.UserInputType.Touch then 
+                    return
+                end
+                if not PressStart or not PressStartPos then 
+                    return
+                end
+
+                local Held = tick() - PressStart
+                local Delta = (Input.Position - PressStartPos).Magnitude
+                PressStart = nil
+                PressStartPos = nil
+
+                if Held < 0.35 and Delta < DragThreshold then 
+                    Window:SetOpen(not Window.IsOpen)
+                end
+            end)
+
+            Items["MobileMenuButton"] = MenuButton
+
+            -- Tighten notification width on small screens so cards don't spill
+            -- over the viewport edge.
+            local NotifMax = Camera.ViewportSize.X - 30
+            if Library.NotifHolder and Library.NotifHolder.Instance then 
+                Instances:Create("UISizeConstraint", {
+                    Parent = Library.NotifHolder.Instance,
+                    MaxSize = Vector2New(NotifMax, math.huge)
+                })
+            end
+        end
 
         -- Sidebar Search button: visible counterpart to the Ctrl+F keybind.
         Items["SearchButton"]:Connect("MouseButton1Down", function()
@@ -4930,14 +5073,28 @@ local Library do
             Slider:Set(MathClamp(Library:Round(Value, Slider.Decimals), Slider.Min, Slider.Max))
         end)
 
+        -- Touch support: MouseButton1Down only covers the tap that starts a
+        -- drag on mobile; we also need the touch begin so we can lock into a
+        -- drag when the user starts touching an off-thumb region.
+        Items["Drag"]:Connect("InputBegan", function(Input)
+            if Input.UserInputType == Enum.UserInputType.Touch then
+                Slider.Sliding = true
+
+                local SizeX = ((Input.Position.X) - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+                local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+
+                Slider:Set(MathClamp(Library:Round(Value, Slider.Decimals), Slider.Min, Slider.Max))
+            end
+        end)
+
         Items["Drag"]:Connect("InputEnded", function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                 Slider.Sliding = false 
             end
         end)
 
         Library:Connect(UserInputService.InputChanged, function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseMovement and Slider.Sliding then
+            if (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) and Slider.Sliding then
                 local SizeX = ((Input.Position.X - 1) - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
                 local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
 
@@ -5421,7 +5578,7 @@ local Library do
         end)
 
         Library:Connect(UserInputService.InputBegan, function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 and Dropdown.IsOpen and not Debounce and not Library:IsMouseOverFrame(Items["OptionHolder"]) then
+            if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Dropdown.IsOpen and not Debounce and not Library:IsMouseOverFrame(Items["OptionHolder"]) then
                 Dropdown:SetOpen(false)
             end
         end)
