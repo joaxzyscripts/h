@@ -70,6 +70,11 @@ local Library do
             Direction = Enum.EasingDirection.Out
         },
 
+        -- Central motion config: named presets resolved to cached TweenInfo via Library:GetMotion.
+        -- Populated lazily by the resolver; rebuilt whenever MotionScale changes.
+        Motion = { },
+        MotionScale = 1,
+
         Folders = {
             Directory = "zoophack",
             Configs = "zoophack/Configs",
@@ -287,9 +292,30 @@ local Library do
     local Tween = { } do
         Tween.__index = Tween
 
+        -- Active-tween registry: instance -> { [propName] = tweenWrapper }.
+        -- Weak keys (__mode = "k") so destroyed instances don't leak registry entries.
+        Tween.Active = setmetatable({}, { __mode = "k" })
+
         Tween.Create = function(self, Item, Info, Goal, IsRawItem)
             Item = IsRawItem and Item or Item.Instance
-            Info = Info or TweenInfo.new(Library.Tween.Time, Library.Tween.Style, Library.Tween.Direction)
+            -- Resolve motion (preset name / TweenInfo / nil) to a cached TweenInfo.
+            Info = Library:GetMotion(Info)
+
+            -- Cancel any existing tween on the same properties for this instance,
+            -- so rapid/overlapping animations replace rather than stack.
+            local Bucket = Tween.Active[Item]
+            if Bucket then
+                for Property in pairs(Goal) do
+                    local Existing = Bucket[Property]
+                    if Existing and Existing.Tween then
+                        Existing.Tween:Cancel()
+                    end
+                    Bucket[Property] = nil
+                end
+            else
+                Bucket = { }
+                Tween.Active[Item] = Bucket
+            end
 
             local NewTween = {
                 Tween = TweenService:Create(Item, Info, Goal),
@@ -298,9 +324,14 @@ local Library do
                 Item = Item
             }
 
-            NewTween.Tween:Play()
-
             setmetatable(NewTween, Tween)
+
+            -- Register the new tween wrapper for each property in the bucket.
+            for Property in pairs(Goal) do
+                Bucket[Property] = NewTween
+            end
+
+            NewTween.Tween:Play()
 
             return NewTween
         end
@@ -335,8 +366,22 @@ local Library do
             end
 
             self:Pause()
+
+            -- Remove our own entries from the active-tween registry so we don't
+            -- leak references. Only clear entries that still point to THIS wrapper,
+            -- so a newer tween that replaced us on the same property is preserved.
+            local Bucket = self.Item and Tween.Active[self.Item]
+            if Bucket and self.Goal then
+                for Property in pairs(self.Goal) do
+                    if Bucket[Property] == self then
+                        Bucket[Property] = nil
+                    end
+                end
+            end
+
             self.Tween = nil
             self.Item = nil
+            self.Goal = nil
         end
     end
 
@@ -425,10 +470,11 @@ local Library do
             local DragStart
             local StartPosition 
 
-            local Set = function(Input)
-                local DragDelta = Input.Position - DragStart
-                self:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(StartPosition.X.Scale, StartPosition.X.Offset + DragDelta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + DragDelta.Y)})
-            end
+            -- Target position updated on input events; a single guarded
+            -- RenderStepped loop lerps toward it. This removes the previous
+            -- per-frame tween allocation while dragging (Req 2.1, 2.3, 5.1).
+            local Target = Gui.Position
+            local SMOOTH = 0.35 -- 0 = instant follow, 1 = heavy smoothing
 
             self:Connect("InputBegan", function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -436,6 +482,7 @@ local Library do
 
                     DragStart = Input.Position
                     StartPosition = Gui.Position
+                    Target = Gui.Position
 
                     RawGui.Debounce = true 
                 end
@@ -446,6 +493,10 @@ local Library do
                     Dragging = false
 
                     RawGui.Debounce = false 
+
+                    -- Snap to the final target so the window settles exactly
+                    -- with no residual motion (Req 2.4).
+                    Gui.Position = Target
                 end
             end)
 
@@ -453,9 +504,20 @@ local Library do
                 if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
                     if Dragging then
                         RawGui.Debounce = true 
-                        Set(Input)
+
+                        local DragDelta = Input.Position - DragStart
+                        Target = UDim2New(StartPosition.X.Scale, StartPosition.X.Offset + DragDelta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + DragDelta.Y)
                     end
                 end
+            end)
+
+            Library:Connect(RunService.RenderStepped, function(dt)
+                if not Dragging then 
+                    return
+                end
+
+                local Alpha = 1 - (SMOOTH ^ (dt * 60)) -- frame-rate-independent lerp factor
+                Gui.Position = Gui.Position:Lerp(Target, Alpha)
             end)
 
             return Dragging
@@ -473,6 +535,12 @@ local Library do
             local Start = UDim2New()
             local Delta = UDim2New()
             local ResizeMax = Gui.Parent.AbsoluteSize - Gui.AbsoluteSize
+
+            -- Target size updated on input events; a single guarded
+            -- RenderStepped loop lerps toward it. This removes the previous
+            -- per-frame tween allocation while resizing (Req 2.2, 2.3, 5.1).
+            local Target = Gui.Size
+            local SMOOTH = 0.35 -- 0 = instant follow, 1 = heavy smoothing
 
             local ResizeButton = Instances:Create("TextButton", {
 				Parent = Gui,
@@ -494,12 +562,17 @@ local Library do
                     Resizing = true
 
                     Start = Gui.Size - UDim2New(0, Input.Position.X, 0, Input.Position.Y)
+                    Target = Gui.Size
                 end
             end)
 
             ResizeButton:Connect("InputEnded", function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                     Resizing = false
+
+                    -- Snap to the final target so the window settles exactly
+                    -- with no residual motion (Req 2.4).
+                    Gui.Size = Target
                 end
             end)
 
@@ -510,8 +583,17 @@ local Library do
 					Delta = Start + UDim2New(0, Input.Position.X, 0, Input.Position.Y)
 					Delta = UDim2New(0, math.clamp(Delta.X.Offset, Minimum.X, ResizeMax.X), 0, math.clamp(Delta.Y.Offset, Minimum.Y, ResizeMax.Y))
 
-					Tween:Create(Gui, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = Delta}, true)
+					Target = Delta
                 end
+            end)
+
+            Library:Connect(RunService.RenderStepped, function(dt)
+                if not Resizing then 
+                    return
+                end
+
+                local Alpha = 1 - (SMOOTH ^ (dt * 60)) -- frame-rate-independent lerp factor
+                Gui.Size = Gui.Size:Lerp(Target, Alpha)
             end)
 
             return Resizing
@@ -631,11 +713,11 @@ local Library do
         Inst.ScrollBarImageTransparency = 1
 
         Library:Connect(HoverInst.MouseEnter, function()
-            Tween:Create(Inst, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 0}, true)
+            Tween:Create(Inst, "Default", {ScrollBarImageTransparency = 0}, true)
         end)
 
         Library:Connect(HoverInst.MouseLeave, function()
-            Tween:Create(Inst, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ScrollBarImageTransparency = 1}, true)
+            Tween:Create(Inst, "Panel", {ScrollBarImageTransparency = 1}, true)
         end)
     end
 
@@ -685,12 +767,72 @@ local Library do
             end)
         else
             Library:Connect(TriggerInst.MouseEnter, function()
-                Tween:Create(StrokeInst, nil, {Color = Library.Theme.Accent}, true)
+                Tween:Create(StrokeInst, "Hover", {Color = Library.Theme.Accent}, true)
             end)
             Library:Connect(TriggerInst.MouseLeave, function()
-                Tween:Create(StrokeInst, nil, {Color = Original}, true)
+                Tween:Create(StrokeInst, "Hover", {Color = Original}, true)
             end)
         end
+    end
+
+    -- Motion preset base specifications { duration, easingStyle, easingDirection }.
+    -- Library.Motion holds the cached, scale-applied TweenInfo objects built from these.
+    local MotionPresets = {
+        Instant = { 0.08, Enum.EasingStyle.Quart, Enum.EasingDirection.Out },
+        Hover   = { 0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.Out },
+        Default = { 0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out },
+        Slide   = { 0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out },
+        Panel   = { 0.30, Enum.EasingStyle.Quint, Enum.EasingDirection.Out },
+        Slow    = { 0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out },
+        Linear  = { 1.00, Enum.EasingStyle.Linear, Enum.EasingDirection.Out },
+    }
+
+    local MotionScaleApplied = nil
+
+    local function RebuildMotion()
+        local Scale = Library.MotionScale or 1
+        if Scale <= 0 then
+            Scale = 1
+        end
+
+        for Name, Spec in pairs(MotionPresets) do
+            Library.Motion[Name] = TweenInfo.new(Spec[1] * Scale, Spec[2], Spec[3])
+        end
+
+        MotionScaleApplied = Library.MotionScale
+    end
+
+    -- Resolve a motion request to a cached TweenInfo.
+    --  * preset name string -> cached preset (rebuilt only if MotionScale changed)
+    --  * TweenInfo          -> returned as-is (backward compat with inline callers)
+    --  * nil / unknown name -> Default preset
+    -- DurationOverride builds a fresh scaled TweenInfo using the resolved preset's easing
+    -- (e.g. the Linear progress-bar tween that scales its duration).
+    Library.GetMotion = function(self, NameOrInfo, DurationOverride)
+        if MotionScaleApplied ~= self.MotionScale then
+            RebuildMotion()
+        end
+
+        if typeof(NameOrInfo) == "TweenInfo" then
+            return NameOrInfo
+        end
+
+        local PresetName = "Default"
+        if type(NameOrInfo) == "string" and MotionPresets[NameOrInfo] then
+            PresetName = NameOrInfo
+        end
+
+        if DurationOverride then
+            local Spec = MotionPresets[PresetName]
+            local Scale = self.MotionScale or 1
+            if Scale <= 0 then
+                Scale = 1
+            end
+
+            return TweenInfo.new(DurationOverride * Scale, Spec[2], Spec[3])
+        end
+
+        return self.Motion[PresetName]
     end
 
     Library.Ripple = function(self, Host, X, Y, Color)
@@ -725,7 +867,7 @@ local Library do
         Corner.CornerRadius = UDimNew(1, 0)
         Corner.Parent = Ripple
 
-        Tween:Create(Ripple, TweenInfo.new(0.45, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Tween:Create(Ripple, "Slow", {
             Size = UDim2New(0, MaxDistance * 2, 0, MaxDistance * 2),
             BackgroundTransparency = 1,
         }, true)
@@ -738,6 +880,34 @@ local Library do
                 HostInst.ClipsDescendants = OldClips
             end
         end)
+    end
+
+    -- Consistent hover feedback: tween an instance toward HoverGoal on MouseEnter and
+    -- back toward RestGoal on MouseLeave, routed through the Hover preset (or Preset).
+    -- Inst may be an Instances wrapper (has .Instance) or a raw Roblox GUI instance.
+    Library.Hover = function(self, Inst, HoverGoal, RestGoal, Preset)
+        local RawInst = Inst and (Inst.Instance or Inst)
+        if not RawInst or not HoverGoal or not RestGoal then 
+            return
+        end
+
+        local PresetName = Preset or "Hover"
+
+        local EnterConnection = Library:Connect(RawInst.MouseEnter, function()
+            if not RawInst or not RawInst.Parent then 
+                return
+            end
+            Tween:Create(RawInst, PresetName, HoverGoal, true)
+        end)
+
+        local LeaveConnection = Library:Connect(RawInst.MouseLeave, function()
+            if not RawInst or not RawInst.Parent then 
+                return
+            end
+            Tween:Create(RawInst, PresetName, RestGoal, true)
+        end)
+
+        return EnterConnection, LeaveConnection
     end
 
     Library.Round = function(self, Number, Float)
@@ -910,11 +1080,11 @@ local Library do
         end
 
         self:Connect(Wrapper.Instance.MouseEnter, function()
-            Wrapper:Tween(nil, {BackgroundColor3 = FromRGB(28, 28, 38)})
+            Wrapper:Tween("Hover", {BackgroundColor3 = FromRGB(28, 28, 38)})
         end)
 
         self:Connect(Wrapper.Instance.MouseLeave, function()
-            Wrapper:Tween(nil, {BackgroundColor3 = self.Theme.Element})
+            Wrapper:Tween("Hover", {BackgroundColor3 = self.Theme.Element})
         end)
     end
 
@@ -1283,6 +1453,16 @@ local Library do
 
         for Index, Value in self.Threads do 
             pcall(coroutine.close, Value)
+        end
+
+        for Instance, Bucket in pairs(Tween.Active) do
+            for Property, Wrapper in pairs(Bucket) do
+                if Wrapper and Wrapper.Tween then
+                    pcall(function()
+                        Wrapper.Tween:Cancel()
+                    end)
+                end
+            end
         end
 
         if self.Holder then 
@@ -1758,7 +1938,7 @@ local Library do
 
             Library:Thread(function()
                 Items["Notification"]:Tween(nil, {BackgroundTransparency = 0})
-                Tween:Create(Frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0, 0, 0, 0)}, true)
+                Tween:Create(Frame, "Panel", {Position = UDim2New(0, 0, 0, 0)}, true)
 
                 task.wait(0.05)
 
@@ -1783,7 +1963,7 @@ local Library do
                 -- Drive progress bar from full → empty
                 Notification.ProgressTween = Tween:Create(
                     Items["ProgressFill"].Instance,
-                    TweenInfo.new(Options.Duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+                    Library:GetMotion("Linear", Options.Duration),
                     {Size = UDim2New(0, 0, 1, 0)},
                     true
                 )
@@ -2372,7 +2552,7 @@ local Library do
             local SlideX = MathClamp((Input.Position.X - Items["Palette"].Instance.AbsolutePosition.X) / Items["Palette"].Instance.AbsoluteSize.X, 0, 0.95)
             local SlideY = MathClamp((Input.Position.Y - Items["Palette"].Instance.AbsolutePosition.Y) / Items["Palette"].Instance.AbsoluteSize.Y, 0, 0.91)
 
-            Items["PaletteDragger"]:Tween(TweenInfo.new(0.17, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(SlideX, 0, SlideY, 0)})
+            Items["PaletteDragger"]:Tween("Hover", {Position = UDim2New(SlideX, 0, SlideY, 0)})
             self:Update()
         end
 
@@ -2387,7 +2567,7 @@ local Library do
 
             local SlideX = MathClamp((Input.Position.X - Items["Hue"].Instance.AbsolutePosition.X) / Items["Hue"].Instance.AbsoluteSize.X, 0, 0.95)
 
-            Items["HueDragger"]:Tween(TweenInfo.new(0.17, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(SlideX, 0, 0, 2)})
+            Items["HueDragger"]:Tween("Hover", {Position = UDim2New(SlideX, 0, 0, 2)})
             self:Update()
         end
 
@@ -2402,7 +2582,7 @@ local Library do
 
             local SlideX = MathClamp((Input.Position.X - Items["Alpha"].Instance.AbsolutePosition.X) / Items["Alpha"].Instance.AbsoluteSize.X, 0, 0.95)
 
-            Items["AlphaDragger"]:Tween(TweenInfo.new(0.17, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(SlideX, 0, 0, 2)})
+            Items["AlphaDragger"]:Tween("Hover", {Position = UDim2New(SlideX, 0, 0, 2)})
             self:Update(true)
         end
 
@@ -2416,11 +2596,11 @@ local Library do
                 Alpha = self.Alpha
             }
 
-            Items["ColorpickerButton"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = self.Color})
-            Items["Palette"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = FromHSV(self.Hue, 1, 1)})
+            Items["ColorpickerButton"]:Tween("Default", {BackgroundColor3 = self.Color})
+            Items["Palette"]:Tween("Default", {BackgroundColor3 = FromHSV(self.Hue, 1, 1)})
 
             if not IsFromAlpha then 
-                Items["Alpha"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = self.Color})
+                Items["Alpha"]:Tween("Default", {BackgroundColor3 = self.Color})
             end
 
             if Data.Callback then 
@@ -2443,15 +2623,15 @@ local Library do
             local ColorPositionX = MathClamp(1 - self.Saturation, 0, 0.95)
             local ColorPositionY = MathClamp(1 - self.Value, 0, 0.91)
 
-            Items["PaletteDragger"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(ColorPositionX, 0, ColorPositionY, 0)})
+            Items["PaletteDragger"]:Tween("Default", {Position = UDim2New(ColorPositionX, 0, ColorPositionY, 0)})
 
             local HuePositionX = MathClamp(self.Hue, 0, 0.95)
 
-            Items["HueDragger"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(HuePositionX, 0, 0, 2)})
+            Items["HueDragger"]:Tween("Default", {Position = UDim2New(HuePositionX, 0, 0, 2)})
 
             local AlphaPositionX = MathClamp(self.Alpha, 0, 0.95)
 
-            Items["AlphaDragger"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(AlphaPositionX, 0, 0, 2)})
+            Items["AlphaDragger"]:Tween("Default", {Position = UDim2New(AlphaPositionX, 0, 0, 2)})
             self:Update()
         end
 
@@ -2835,15 +3015,15 @@ local Library do
             local Parent = Inst.Parent
             if Parent and Parent:IsA("ScrollingFrame") then 
                 local TargetY = math.max(0, Inst.AbsolutePosition.Y - Parent.AbsolutePosition.Y - 8)
-                Tween:Create(Parent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {CanvasPosition = Vector2New(0, TargetY)}, true)
+                Tween:Create(Parent, "Panel", {CanvasPosition = Vector2New(0, TargetY)}, true)
             end
 
             local Stroke = Inst:FindFirstChildOfClass("UIStroke")
             if Stroke then 
                 local Original = Stroke.Color
-                Tween:Create(Stroke, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Color = self.Theme.Accent, Thickness = 1.6}, true)
+                Tween:Create(Stroke, "Slide", {Color = self.Theme.Accent, Thickness = 1.6}, true)
                 task.delay(0.9, function()
-                    Tween:Create(Stroke, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Color = Original, Thickness = 1}, true)
+                    Tween:Create(Stroke, "Slow", {Color = Original, Thickness = 1}, true)
                 end)
             end
         end
@@ -2950,16 +3130,16 @@ local Library do
         })  Tag:AddToTheme({TextColor3 = "Accent"})
 
         Row:Connect("MouseEnter", function()
-            Row:Tween(nil, {BackgroundColor3 = self.Theme.Element})
+            Row:Tween("Hover", {BackgroundColor3 = self.Theme.Element})
             Stroke:ChangeItemTheme({Color = "Accent"})
-            Tween:Create(Stroke.Instance, nil, {Color = self.Theme.Accent}, true)
+            Tween:Create(Stroke.Instance, "Hover", {Color = self.Theme.Accent}, true)
         end)
 
         Row:Connect("MouseLeave", function()
             Row:ChangeItemTheme({BackgroundColor3 = "Inline"})
-            Row:Tween(nil, {BackgroundColor3 = self.Theme.Inline})
+            Row:Tween("Hover", {BackgroundColor3 = self.Theme.Inline})
             Stroke:ChangeItemTheme({Color = "Border"})
-            Tween:Create(Stroke.Instance, nil, {Color = self.Theme.Border}, true)
+            Tween:Create(Stroke.Instance, "Hover", {Color = self.Theme.Border}, true)
         end)
 
         Row:Connect("MouseButton1Down", function()
@@ -3026,8 +3206,8 @@ local Library do
         Backdrop.Instance.BackgroundTransparency = 1
         Frame.Instance.Position = UDim2New(0.5, 0, 0, 60)
 
-        Tween:Create(Backdrop.Instance, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 0.55}, true)
-        Frame:Tween(TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0.5, 0, 0, 80)})
+        Tween:Create(Backdrop.Instance, "Default", {BackgroundTransparency = 0.55}, true)
+        Frame:Tween("Slide", {Position = UDim2New(0.5, 0, 0, 80)})
 
         self.SearchOverlayData.Input.Instance.Text = ""
         self:RefreshSearchOverlay()
@@ -3052,8 +3232,8 @@ local Library do
             self.SearchOverlayData.Input.Instance:ReleaseFocus()
         end
 
-        Tween:Create(Backdrop.Instance, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = 1}, true)
-        Frame:Tween(TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2New(0.5, 0, 0, 60)})
+        Tween:Create(Backdrop.Instance, "Default", {BackgroundTransparency = 1}, true)
+        Frame:Tween("Slide", {Position = UDim2New(0.5, 0, 0, 60)})
 
         task.delay(0.25, function()
             if not self.SearchOverlayData.Visible then 
@@ -4611,11 +4791,11 @@ local Library do
         Library:BindTooltip(Items["Toggle"], Library:GetDescription(Data))
 
         Library:Connect(Items["Toggle"].Instance.MouseEnter, function()
-            Items["Text"]:Tween(nil, {TextTransparency = Toggle.Value and 0 or 0.2})
+            Items["Text"]:Tween("Hover", {TextTransparency = Toggle.Value and 0 or 0.2})
         end)
 
         Library:Connect(Items["Toggle"].Instance.MouseLeave, function()
-            Items["Text"]:Tween(nil, {TextTransparency = Toggle.Value and 0 or 0.5})
+            Items["Text"]:Tween("Hover", {TextTransparency = Toggle.Value and 0 or 0.5})
         end)
 
         Items["Toggle"]:Connect("MouseButton1Down", function()
@@ -4677,16 +4857,16 @@ local Library do
             Items["Button"]:ChangeItemTheme({BackgroundColor3 = "Accent"})
             Items["UIStroke"]:ChangeItemTheme({Color = "Light Accent"})
 
-            Items["Button"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
-            Items["UIStroke"]:Tween(nil, {Color = Library.Theme["Light Accent"]})
+            Items["Button"]:Tween("Instant", {BackgroundColor3 = Library.Theme.Accent})
+            Items["UIStroke"]:Tween("Instant", {Color = Library.Theme["Light Accent"]})
 
             task.wait(0.1)
 
             Items["Button"]:ChangeItemTheme({BackgroundColor3 = "Element"})
             Items["UIStroke"]:ChangeItemTheme({Color = "Border"})
 
-            Items["Button"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
-            Items["UIStroke"]:Tween(nil, {Color = Library.Theme.Border})
+            Items["Button"]:Tween("Hover", {BackgroundColor3 = Library.Theme.Element})
+            Items["UIStroke"]:Tween("Hover", {Color = Library.Theme.Border})
 
             Library:SafeCall(Button.Callback)
         end
@@ -4752,16 +4932,16 @@ local Library do
                 SubItems["SubButton"]:ChangeItemTheme({BackgroundColor3 = "Accent"})
                 SubItems["UIStroke"]:ChangeItemTheme({Color = "Light Accent"})
 
-                SubItems["SubButton"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
-                SubItems["UIStroke"]:Tween(nil, {Color = Library.Theme["Light Accent"]})
+                SubItems["SubButton"]:Tween("Instant", {BackgroundColor3 = Library.Theme.Accent})
+                SubItems["UIStroke"]:Tween("Instant", {Color = Library.Theme["Light Accent"]})
 
                 task.wait(0.1)
 
                 SubItems["SubButton"]:ChangeItemTheme({BackgroundColor3 = "Element"})
                 SubItems["UIStroke"]:ChangeItemTheme({Color = "Border"})
 
-                SubItems["SubButton"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
-                SubItems["UIStroke"]:Tween(nil, {Color = Library.Theme.Border})
+                SubItems["SubButton"]:Tween("Hover", {BackgroundColor3 = Library.Theme.Element})
+                SubItems["UIStroke"]:Tween("Hover", {Color = Library.Theme.Border})
 
                 Library:SafeCall(SubButton.Callback)
             end
@@ -4800,12 +4980,12 @@ local Library do
 
         Items["Button"]:OnHover(function()
             if not Items["Button"].Instance then return end
-            Items["Button"]:Tween(nil, {BackgroundColor3 = FromRGB(28, 28, 38)})
+            Items["Button"]:Tween("Hover", {BackgroundColor3 = FromRGB(28, 28, 38)})
         end)
 
         Items["Button"]:OnHoverLeave(function()
             if not Items["Button"].Instance then return end
-            Items["Button"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
+            Items["Button"]:Tween("Hover", {BackgroundColor3 = Library.Theme.Element})
         end)
 
         Items["Button"]:Connect("MouseButton1Down", function(X, Y)
@@ -4998,7 +5178,7 @@ local Library do
 
             Library.Flags[Slider.Flag] = Slider.Value
 
-            Items["Accent"]:Tween(TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
+            Items["Accent"]:Tween("Default", {Size = UDim2New((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)})
             Items["Value"].Instance.Text = StringFormat("%s%s", tostring(Slider.Value), Slider.Suffix)
 
             if Slider.Callback then 
