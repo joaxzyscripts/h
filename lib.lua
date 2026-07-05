@@ -3343,12 +3343,15 @@ local Library do
                 }
             })
 
+            -- Sidebar accent bar: taller + slightly thicker, with a soft
+            -- accent-tinted halo behind it so the active-page indicator
+            -- pops more against the dark sidebar.
             Items["PageAccent"] = Instances:Create("Frame", {
                 Parent = Items["Sidebar"].Instance,
                 Name = "\0",
                 AnchorPoint = Vector2New(0, 0.5),
                 Position = UDim2New(0, 0, 0, 0),
-                Size = UDim2New(0, 2, 0, 18),
+                Size = UDim2New(0, 3, 0, 22),
                 BorderColor3 = FromRGB(0, 0, 0),
                 BorderSizePixel = 0,
                 ZIndex = 4,
@@ -3359,7 +3362,26 @@ local Library do
             Instances:Create("UICorner", {
                 Parent = Items["PageAccent"].Instance,
                 CornerRadius = UDimNew(0, 2)
-            }) 
+            })
+
+            Instances:Create("ImageLabel", {
+                Parent = Items["PageAccent"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(1, 14, 1, 10),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                Image = "rbxassetid://112971167999062",
+                ImageColor3 = Library.Theme.Accent,
+                ImageTransparency = 0.35,
+                ScaleType = Enum.ScaleType.Slice,
+                SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+                SliceScale = 0.6,
+                ZIndex = 3,
+                BackgroundColor3 = FromRGB(255, 255, 255)
+            }):AddToTheme({ImageColor3 = "Accent"})
 
             Items["Logo"] = Instances:Create("ImageLabel", {
                 Parent = Items["Sidebar"].Instance,
@@ -3731,6 +3753,13 @@ local Library do
             Search = Data.Search or Data.search or false,
 
             Items = { },
+            -- Per-page subpage list. The check for auto-activation used to be
+            -- against Window.SubPages (a flat list across ALL pages), so only
+            -- the very first subpage in the whole window was auto-activated.
+            -- That, combined with the click handler turning off every other
+            -- subpage in Window.SubPages, meant switching pages could leave
+            -- the target page with NO active subpage → the "empty tab" bug.
+            SubPages = { },
 
             Active = false,
         }
@@ -3892,9 +3921,49 @@ local Library do
                     Accent.Instance.Visible = true
                     Accent:Tween(nil, {Position = UDim2New(0, 0, 0, RelativeY)})
                 end
+
+                -- Guarantee this page always has a visible subpage once it
+                -- becomes active. If a previous subpage-click storm (see the
+                -- SubPage MouseButton1Down handler) left every subpage in
+                -- this page inactive, activate the first one so the user
+                -- doesn't see an empty tab.
+                if Page.SubPages and #Page.SubPages > 0 then 
+                    local anyActive = false
+                    for _, sp in Page.SubPages do 
+                        if sp.Active then 
+                            anyActive = true
+                            break
+                        end
+                    end
+                    if not anyActive then 
+                        Page.SubPages[1]:Turn(true)
+                    end
+                end
             else
                 Items["Inactive"]:Tween(nil, {ImageTransparency = 0.5})
                 Items["Glow"]:Tween(nil, {ImageTransparency = 1})
+            end
+
+            -- Build a skip-set of PageContent frames + their descendants for
+            -- every INACTIVE subpage. Fading their subtrees is pure waste:
+            -- they live inside a Visible=false parent so nothing renders,
+            -- but the previous code still created a TweenService tween per
+            -- transparency property (hundreds per page-switch on Movement /
+            -- Combat), which is the frame-hitch users see when swapping
+            -- pages. Skipping them keeps the visible fade animation intact
+            -- while cutting tween-count by ~5-10x on subpage-heavy pages.
+            local Skip
+            if Page.SubPages and #Page.SubPages > 0 then 
+                Skip = { }
+                for _, sp in Page.SubPages do 
+                    if not sp.Active and sp.Items and sp.Items["PageContent"] then 
+                        local pc = sp.Items["PageContent"].Instance
+                        Skip[pc] = true
+                        for _, d in ipairs(pc:GetDescendants()) do 
+                            Skip[d] = true
+                        end
+                    end
+                end
             end
 
             local Descendants = Items["PageContent"].Instance:GetDescendants()
@@ -3902,6 +3971,10 @@ local Library do
 
             local NewTween
             for Index, Value in Descendants do 
+                if Skip and Skip[Value] then 
+                    continue
+                end
+
                 local ValueIndex = Library:GetTransparencyPropertyFromItem(Value)
 
                 if not ValueIndex then 
@@ -3917,6 +3990,17 @@ local Library do
                 end
             end
 
+            -- If every descendant was skipped (nothing to fade) fall back to
+            -- a delay so Debounce still releases and callbacks still fire.
+            if not NewTween then 
+                task.delay(Page.Window.FadeSpeed or 0.2, function()
+                    Debounce = false
+                    Items["PageContent"].Instance.Visible = Bool
+                    Items["PageContent"].Instance.Parent = Bool and Page.Window.Items["Inline"].Instance or Library.UnusedHolder.Instance
+                end)
+                return
+            end
+
             Library:Connect(NewTween.Tween.Completed, function()
                 Debounce = false
                 Items["PageContent"].Instance.Visible = Bool
@@ -3926,7 +4010,18 @@ local Library do
                 else
                     Items["Columns"]:Tween(nil, {Position = Bool and UDim2New(0, 0, 0, 55) or UDim2New(0, 0, 1, 0)})
                 end
-            end)            
+            end)
+
+            -- Belt-and-suspenders: reset Debounce after the tween duration
+            -- even if the Completed signal never fires (e.g. tween cancelled
+            -- by an overlapping Tween:Create on the same property). Without
+            -- this, a bad race could leave Debounce=true forever and lock
+            -- the page from ever being toggled again.
+            task.delay((Page.Window.FadeSpeed or 0.2) + 0.1, function()
+                if Debounce then 
+                    Debounce = false
+                end
+            end)
         end
 
         Items["Inactive"]:Connect("MouseButton1Down", function()
@@ -4142,10 +4237,26 @@ local Library do
                 end
             end
 
-            Library:Connect(NewTween.Tween.Completed, function()
-                Debounce = false
-                Items["PageContent"].Instance.Visible = Bool
-            end)            
+            if NewTween then 
+                Library:Connect(NewTween.Tween.Completed, function()
+                    Debounce = false
+                    Items["PageContent"].Instance.Visible = Bool
+                end)
+            else
+                task.delay(SubPage.Window.FadeSpeed or 0.2, function()
+                    Debounce = false
+                    Items["PageContent"].Instance.Visible = Bool
+                end)
+            end
+
+            -- Fallback timer so Debounce always releases even if the tween's
+            -- Completed signal never fires (e.g. cancelled by an overlapping
+            -- Tween:Create on the same property).
+            task.delay((SubPage.Window.FadeSpeed or 0.2) + 0.1, function()
+                if Debounce then 
+                    Debounce = false
+                end
+            end)
         end
 
         local RenderStepped
@@ -4177,17 +4288,30 @@ local Library do
         end
 
         Items["Inactive"]:Connect("MouseButton1Down", function()
-            for Index, Value in SubPage.Window.SubPages do
+            -- Only toggle subpages that belong to the SAME page. Iterating
+            -- Window.SubPages (the flat list) would clobber active subpages
+            -- on unrelated pages, which is what caused the "empty tab" bug
+            -- when returning to those pages.
+            local siblings = SubPage.Page.SubPages or SubPage.Window.SubPages
+            for Index, Value in siblings do
                 Value:Turn(Value == SubPage)
             end
         end)
 
-        if #SubPage.Page.Window.SubPages == 0 then 
+        -- Auto-activate the first subpage per PAGE (not per window). Ensures
+        -- every page that has subpages opens with content visible.
+        if SubPage.Page.SubPages and #SubPage.Page.SubPages == 0 then 
             SubPage:Turn(true)
         end
 
         SubPage.Items = Items
 
+        -- Track the subpage on BOTH the page and the window. The window
+        -- list is still used by legacy callers (e.g. search jump-to); the
+        -- page list is the new source of truth for sibling operations.
+        if SubPage.Page.SubPages then 
+            TableInsert(SubPage.Page.SubPages, SubPage)
+        end
         TableInsert(SubPage.Window.SubPages, SubPage)
         return setmetatable(SubPage, Library.Pages)
     end
@@ -4223,6 +4347,30 @@ local Library do
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             }):AddToTheme({Color = "Border"})
 
+            -- Subtle gradient behind section header: lighter at top, fades to
+            -- match Background further down. Purely visual depth cue — the
+            -- BackgroundTransparency stays 1 on the Section so this gradient
+            -- overlays the theme colour rather than replacing it.
+            Items["HeaderGradient"] = Instances:Create("Frame", {
+                Parent = Items["Section"].Instance,
+                Name = "\0",
+                BackgroundColor3 = FromRGB(255, 255, 255),
+                BackgroundTransparency = 0.94,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                Size = UDim2New(1, 0, 0, 28),
+                Position = UDim2New(0, 0, 0, 0),
+                ZIndex = 4,
+            })
+            Instances:Create("UIGradient", {
+                Parent = Items["HeaderGradient"].Instance,
+                Rotation = 90,
+                Transparency = NumSequence{
+                    NumSequenceKeypoint(0, 0),
+                    NumSequenceKeypoint(1, 1),
+                },
+            })
+
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Section"].Instance,
                 FontFace = Library.BoldFont,
@@ -4234,28 +4382,35 @@ local Library do
                 Size = UDim2New(1, 0, 0, 15),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 12, 0, 6),
-                ZIndex = 4,
+                Position = UDim2New(0, 14, 0, 6),
+                ZIndex = 5,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
-            Instances:Create("Frame", {
+            -- Section accent bar: taller (14px), rounded corners on both
+            -- ends, sits slightly inset from the section edge.
+            Items["AccentBar"] = Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
-                Size = UDim2New(0, 2, 0, 12),
+                Size = UDim2New(0, 3, 0, 14),
                 Name = "\0",
                 Position = UDim2New(0, 0, 0, 7),
                 BorderColor3 = FromRGB(0, 0, 0),
-                ZIndex = 4,
+                ZIndex = 5,
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Accent
-            }):AddToTheme({BackgroundColor3 = "Accent"})
+            })  Items["AccentBar"]:AddToTheme({BackgroundColor3 = "Accent"})
+
+            Instances:Create("UICorner", {
+                Parent = Items["AccentBar"].Instance,
+                CornerRadius = UDimNew(0, 2)
+            })
 
             Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
-                Size = UDim2New(1, 0, 0, 1),
+                Size = UDim2New(1, -8, 0, 1),
                 Name = "\0",
-                Position = UDim2New(0, 0, 0, 27),
+                Position = UDim2New(0, 4, 0, 27),
                 BorderColor3 = FromRGB(0, 0, 0),
                 ZIndex = 4,
                 BorderSizePixel = 0,
@@ -4287,7 +4442,7 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["Section"].Instance,
-                CornerRadius = UDimNew(0, 3)
+                CornerRadius = UDimNew(0, 5)
             }) 
 
             Items["Chevron"] = Instances:Create("ImageLabel", {
@@ -5355,19 +5510,37 @@ local Library do
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
+            -- Parent to the top-level Library.Holder ScreenGui, NOT to the
+            -- Dropdown Frame. The Dropdown lives inside a ScrollingFrame
+            -- (Section.Left/Right) which clips descendants; leaving the
+            -- OptionHolder as a child of that ScrollingFrame made options
+            -- invisible whenever they extended past the visible section
+            -- bounds — the "sometimes doesn't work" flake users report.
+            -- Position is set in absolute screen coordinates each time the
+            -- dropdown opens (see Dropdown:SetOpen).
+            -- ZIndex sits deliberately below tooltips (5000) / notifications
+            -- (~2000-3000 depending on host) so those still render on top,
+            -- but above the window itself (whose descendants top out ~50).
+            -- Global ZIndex mode means children need EXPLICITLY higher
+            -- values than this background frame to stay visible on top.
             Items["OptionHolder"] = Instances:Create("TextButton", {
-                Parent = Items["Dropdown"].Instance,
+                Parent = Library.Holder.Instance,
                 AutoButtonColor = false,
                 Visible = false,
                 Text = "",
-                Size = UDim2New(1, 0, 0, Dropdown.MaxSize),
+                Size = UDim2New(0, 200, 0, Dropdown.MaxSize),
                 Name = "\0",
-                Position = UDim2New(0, 0, 1, 0),
+                Position = UDim2New(0, 0, 0, 0),
                 BorderColor3 = FromRGB(0, 0, 0),
-                ZIndex = 25,
+                ZIndex = 2500,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(11, 11, 11)
             })  Items["OptionHolder"]:AddToTheme({BackgroundColor3 = "Inline"})
+
+            Instances:Create("UICorner", {
+                Parent = Items["OptionHolder"].Instance,
+                CornerRadius = UDimNew(0, 4)
+            })
 
             Instances:Create("UIStroke", {
                 Parent = Items["OptionHolder"].Instance,
@@ -5379,7 +5552,7 @@ local Library do
                 Parent = Items["OptionHolder"].Instance,
                 Active = true,
                 AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                ZIndex = 25,
+                ZIndex = 2501,
                 BorderSizePixel = 0,
                 CanvasSize = UDim2New(0, 0, 0, 0),
                 ScrollBarImageColor3 = Library.Theme.Accent,
@@ -5417,7 +5590,7 @@ local Library do
                     Position = UDim2New(0, 5, 0, 5),
                     Size = UDim2New(1, -10, 0, 20),
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 26,
+                    ZIndex = 2502,
                     TextSize = 14,
                     BackgroundColor3 = FromRGB(14, 14, 14)
                 })  Items["Search"]:AddToTheme({BackgroundColor3 = "Background", TextColor3 = "Text"})
@@ -5580,6 +5753,25 @@ local Library do
             Debounce = true 
 
             if Bool then 
+                -- Reposition the OptionHolder in absolute screen coords each
+                -- time it opens. It now lives on Library.Holder (a top-level
+                -- ScreenGui) instead of inside the Section ScrollingFrame,
+                -- so we can't rely on parent-relative positioning anymore.
+                -- Anchor to the dropdown button below (spilling downward)
+                -- unless there isn't room, in which case flip upward so the
+                -- options never fall off-screen.
+                local realDD = Items["RealDropdown"].Instance
+                local absPos = realDD.AbsolutePosition
+                local absSize = realDD.AbsoluteSize
+                local menuHeight = Dropdown.MaxSize + 4
+                local viewport = Camera.ViewportSize
+                local x = absPos.X
+                local y = absPos.Y + absSize.Y + 2
+                if y + menuHeight > viewport.Y then 
+                    y = absPos.Y - menuHeight - 2
+                end
+                Items["OptionHolder"].Instance.Position = UDim2New(0, x, 0, y)
+                Items["OptionHolder"].Instance.Size = UDim2New(0, absSize.X, 0, Dropdown.MaxSize)
                 Items["OptionHolder"].Instance.Visible = true
             end
 
@@ -5603,9 +5795,26 @@ local Library do
                 end
             end
 
-            Library:Connect(NewTween.Tween.Completed, function()
-                Debounce = false
-                Items["OptionHolder"].Instance.Visible = Bool
+            if NewTween then 
+                Library:Connect(NewTween.Tween.Completed, function()
+                    Debounce = false
+                    Items["OptionHolder"].Instance.Visible = Bool
+                end)
+            else
+                task.delay(Dropdown.Window.FadeSpeed or 0.2, function()
+                    Debounce = false
+                    Items["OptionHolder"].Instance.Visible = Bool
+                end)
+            end
+
+            -- Fallback release so a cancelled/dropped tween completion never
+            -- leaves Debounce stuck true (which was making the dropdown feel
+            -- unresponsive after rapid clicks).
+            task.delay((Dropdown.Window.FadeSpeed or 0.2) + 0.1, function()
+                if Debounce then 
+                    Debounce = false
+                    Items["OptionHolder"].Instance.Visible = Bool
+                end
             end)
         end
 
@@ -5646,7 +5855,7 @@ local Library do
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
-                ZIndex = 25,
+                ZIndex = 2502,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(14, 14, 14)
             })  OptionButton:AddToTheme({TextColor3 = "Text", BackgroundColor3 = "Background"})
