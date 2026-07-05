@@ -5460,7 +5460,17 @@ local Library do
             Flag = Data.Flag or Data.flag or Library:NextFlag(),
             Items = Data.Items or Data.items or { "One", "Two", "Three" },
             Default = Data.Default or Data.default or nil,
-            MaxSize = Data.MaxSize or Data.maxsize or 75,
+            -- Default popup height bumped from 75 (~3 options visible) to
+            -- 200 (~9 options visible). Each option is 24px tall including
+            -- padding; users kept complaining the menu felt cramped and
+            -- required scrolling for lists as short as 4-5 items.
+            MaxSize = Data.MaxSize or Data.maxsize or 200,
+            -- Minimum popup width so options don't clip on narrow buttons.
+            -- The dropdown button itself might be 120px wide (short label);
+            -- popping open a 120px menu with truncated option text is what
+            -- the "too small" complaint was really about. We now compute
+            -- max(buttonWidth, MinWidth) in SetOpen.
+            MinWidth = Data.MinWidth or Data.minwidth or 220,
             Callback = Data.Callback or Data.callback or function() end,
             Multi = Data.Multi or Data.multi or false,
 
@@ -5763,15 +5773,29 @@ local Library do
                 local realDD = Items["RealDropdown"].Instance
                 local absPos = realDD.AbsolutePosition
                 local absSize = realDD.AbsoluteSize
-                local menuHeight = Dropdown.MaxSize + 4
                 local viewport = Camera.ViewportSize
+                -- Popup width: max(button width, MinWidth) but also clamped
+                -- to the viewport so a narrow window doesn't push it out
+                -- of the right edge.
+                local menuWidth = math.max(absSize.X, Dropdown.MinWidth or 220)
+                menuWidth = math.min(menuWidth, viewport.X - 20)
+                -- Popup height: MaxSize but never taller than the viewport
+                -- (with a small margin), so a big MaxSize on a small screen
+                -- still fits.
+                local menuHeight = math.min(Dropdown.MaxSize, viewport.Y - 40)
                 local x = absPos.X
+                -- If MinWidth pushed the popup wider than the button and
+                -- the extra width would spill off the right edge, shift
+                -- the popup left so it stays fully on-screen.
+                if x + menuWidth > viewport.X - 10 then 
+                    x = math.max(10, viewport.X - menuWidth - 10)
+                end
                 local y = absPos.Y + absSize.Y + 2
-                if y + menuHeight > viewport.Y then 
+                if y + menuHeight + 4 > viewport.Y then 
                     y = absPos.Y - menuHeight - 2
                 end
                 Items["OptionHolder"].Instance.Position = UDim2New(0, x, 0, y)
-                Items["OptionHolder"].Instance.Size = UDim2New(0, absSize.X, 0, Dropdown.MaxSize)
+                Items["OptionHolder"].Instance.Size = UDim2New(0, menuWidth, 0, menuHeight)
                 Items["OptionHolder"].Instance.Visible = true
             end
 
@@ -5851,7 +5875,7 @@ local Library do
                 Name = "\0",
                 AutoButtonColor = false,
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -5, 0, 20),
+                Size = UDim2New(1, -5, 0, 22),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
