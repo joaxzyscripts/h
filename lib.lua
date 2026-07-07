@@ -212,16 +212,20 @@ local Library do
 
     local Themes = {
 		["Default"] = {
-		    ["Background"] = FromRGB(16, 16, 20),
-		    ["Inline"] = FromRGB(12, 12, 16),
-		    ["Text"] = FromRGB(230, 230, 240),
-		    ["Element"] = FromRGB(20, 20, 28),
+		    -- Deeper, cooler background pair for stronger contrast against
+		    -- the accent and cleaner separation between layers.
+		    ["Background"] = FromRGB(13, 13, 18),
+		    ["Inline"] = FromRGB(8, 8, 12),
+		    ["Text"] = FromRGB(240, 240, 250),
+		    ["Element"] = FromRGB(22, 22, 32),
 		    ["Image"] = FromRGB(255, 255, 255),
-		
-		    ["Accent"] = FromRGB(160, 100, 255),
-		    ["Light Accent"] = FromRGB(200, 150, 255),
-		
-		    ["Border"] = FromRGB(32, 30, 42)
+
+		    -- Softer, more balanced violet — the previous accent skewed
+		    -- pink-magenta under most Roblox lighting.
+		    ["Accent"] = FromRGB(158, 110, 255),
+		    ["Light Accent"] = FromRGB(205, 168, 255),
+
+		    ["Border"] = FromRGB(40, 38, 55)
 		}
     }
 
@@ -252,9 +256,9 @@ local Library do
     -- Visual tokens & UX presets
     -- ════════════════════════════════════════════════════
     Library.Radius = {
-        Small  = 3,
-        Medium = 4,
-        Large  = 6,
+        Small  = 4,
+        Medium = 6,
+        Large  = 8,
         Pill   = 999,
     }
 
@@ -1712,14 +1716,14 @@ local Library do
             BorderColor3 = FromRGB(0, 0, 0),
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
-            Size = UDim2New(0, 270, 0, 0),
+            Size = UDim2New(0, 285, 0, 0),
             ClipsDescendants = true,
             BackgroundColor3 = FromRGB(11, 11, 11)
         })  Items["Notification"]:AddToTheme({BackgroundColor3 = "Inline"})
 
         Instances:Create("UICorner", {
             Parent = Items["Notification"].Instance,
-            CornerRadius = UDimNew(0, self.Radius.Medium)
+            CornerRadius = UDimNew(0, self.Radius.Large)
         }) 
 
         Instances:Create("UIStroke", {
@@ -1730,17 +1734,18 @@ local Library do
 
         Instances:Create("UIPadding", {
             Parent = Items["Notification"].Instance,
-            PaddingTop = UDimNew(0, 7),
-            PaddingBottom = UDimNew(0, 9),
-            PaddingRight = UDimNew(0, 10),
-            PaddingLeft = UDimNew(0, 30)
+            PaddingTop = UDimNew(0, 10),
+            PaddingBottom = UDimNew(0, 12),
+            PaddingRight = UDimNew(0, 14),
+            PaddingLeft = UDimNew(0, 40)
         }) 
 
-        -- Type-coloured accent strip
+        -- Type-coloured accent strip — wider and taller so the type read
+        -- is glanceable from further away.
         Items["Strip"] = Instances:Create("Frame", {
             Parent = Items["Notification"].Instance,
-            Size = UDim2New(0, 3, 1, -14),
-            Position = UDim2New(0, -23, 0, 7),
+            Size = UDim2New(0, 4, 1, -20),
+            Position = UDim2New(0, -30, 0, 10),
             BorderSizePixel = 0,
             BorderColor3 = FromRGB(0, 0, 0),
             ZIndex = 5,
@@ -1749,14 +1754,15 @@ local Library do
 
         Instances:Create("UICorner", {
             Parent = Items["Strip"].Instance,
-            CornerRadius = UDimNew(0, 2)
+            CornerRadius = UDimNew(1, 0)
         })
 
-        -- Type icon (circle + glyph)
+        -- Type icon: bigger ring with a soft glow behind it so success /
+        -- error notifications have visible presence at a glance.
         Items["IconRing"] = Instances:Create("Frame", {
             Parent = Items["Notification"].Instance,
-            Size = UDim2New(0, 14, 0, 14),
-            Position = UDim2New(0, -16, 0, 6),
+            Size = UDim2New(0, 20, 0, 20),
+            Position = UDim2New(0, -22, 0, 8),
             BorderSizePixel = 0,
             BorderColor3 = FromRGB(0, 0, 0),
             ZIndex = 5,
@@ -1768,6 +1774,25 @@ local Library do
             CornerRadius = UDimNew(1, 0)
         })
 
+        Instances:Create("ImageLabel", {
+            Parent = Items["IconRing"].Instance,
+            Name = "\0",
+            AnchorPoint = Vector2New(0.5, 0.5),
+            Position = UDim2New(0.5, 0, 0.5, 0),
+            Size = UDim2New(1, 12, 1, 12),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            BorderColor3 = FromRGB(0, 0, 0),
+            Image = "rbxassetid://112971167999062",
+            ImageColor3 = TypeData.Color,
+            ImageTransparency = 0.55,
+            ScaleType = Enum.ScaleType.Slice,
+            SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+            SliceScale = 0.6,
+            ZIndex = 4,
+            BackgroundColor3 = FromRGB(255, 255, 255),
+        })
+
         Items["IconText"] = Instances:Create("TextLabel", {
             Parent = Items["IconRing"].Instance,
             FontFace = self.BoldFont,
@@ -1777,7 +1802,7 @@ local Library do
             BorderSizePixel = 0,
             BorderColor3 = FromRGB(0, 0, 0),
             Size = UDim2New(1, 0, 1, 0),
-            TextSize = 11,
+            TextSize = 13,
             ZIndex = 6,
         })
 
@@ -1795,7 +1820,7 @@ local Library do
             TextXAlignment = Enum.TextXAlignment.Left,
             TextWrapped = true,
             AutomaticSize = Enum.AutomaticSize.Y,
-            TextSize = 13,
+            TextSize = 14,
             BackgroundColor3 = FromRGB(255, 255, 255)
         })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -1805,31 +1830,32 @@ local Library do
             TextWrapped = true,
             Name = "====sa0dSA=DSAJGjmsaM",
             TextColor3 = FromRGB(255, 255, 255),
-            TextTransparency = 0.45,
+            TextTransparency = 0.42,
             Text = tostring(Options.Description or ""),
-            Size = UDim2New(1, 0, 0, 15),
-            Position = UDim2New(0, 0, 0, 18),
+            Size = UDim2New(1, 0, 0, 14),
+            Position = UDim2New(0, 0, 0, 20),
             BorderSizePixel = 0,
             BorderColor3 = FromRGB(0, 0, 0),
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.Y,
-            TextSize = 13,
+            TextSize = 12,
             BackgroundColor3 = FromRGB(255, 255, 255)
         })  Items["Description"]:AddToTheme({TextColor3 = "Text"})
 
-        -- Progress bar (depletes over Duration)
+        -- Progress bar — hugs the very bottom edge of the card so it feels
+        -- like a timeout ring across the whole notification.
         Items["ProgressTrack"] = Instances:Create("Frame", {
             Parent = Items["Notification"].Instance,
             Name = "\0",
             AnchorPoint = Vector2New(0, 1),
-            Position = UDim2New(0, -20, 1, 4),
-            Size = UDim2New(1, 30, 0, 2),
+            Position = UDim2New(0, -30, 1, 6),
+            Size = UDim2New(1, 44, 0, 2),
             BorderSizePixel = 0,
             BorderColor3 = FromRGB(0, 0, 0),
-            BackgroundTransparency = 0.7,
+            BackgroundTransparency = 0.6,
             ZIndex = 5,
-            BackgroundColor3 = FromRGB(40, 40, 50),
+            BackgroundColor3 = FromRGB(40, 40, 55),
         })
 
         Items["ProgressFill"] = Instances:Create("Frame", {
@@ -2137,7 +2163,9 @@ local Library do
             
                 local XPosition = (ButtonSize.X + Spacing) * Column - Spacing - ButtonSize.X
             
-                Items["ColorpickerButton"].Instance.Position = UDim2New(1, Data.IsToggle and -XPosition - 20 or -XPosition, 0.5, 0)
+                -- Colorpicker chips are offset further left when attached
+                -- to a toggle so they clear the new wider 28px pill switch.
+                Items["ColorpickerButton"].Instance.Position = UDim2New(1, Data.IsToggle and -XPosition - 32 or -XPosition, 0.5, 0)
             end
 
             CalculateCount(Data.Count)
@@ -2431,13 +2459,15 @@ local Library do
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
+            -- Rainbow toggle mirrors the new pill-switch style used by the
+            -- main Toggle for visual consistency across the library.
             Items["Indicator"] = Instances:Create("Frame", {
                 Parent = Items["RainbowToggle"].Instance,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(1, 0.5),
                 Name = "\0",
                 Position = UDim2New(1, 0, 0.5, 0),
-                Size = UDim2New(0, 15, 0, 15),
+                Size = UDim2New(0, 28, 0, 15),
                 ZIndex = 5,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(11, 11, 11)
@@ -2451,24 +2481,36 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["Indicator"].Instance,
-                CornerRadius = UDimNew(0, 3)
+                CornerRadius = UDimNew(1, 0)
             }) 
 
-            Items["Check"] = Instances:Create("ImageLabel", {
+            Items["Thumb"] = Instances:Create("Frame", {
                 Parent = Items["Indicator"].Instance,
-                ImageColor3 = FromRGB(0, 0, 0),
-                ScaleType = Enum.ScaleType.Fit,
-                BorderColor3 = FromRGB(0, 0, 0),
                 Name = "\0",
-                Size = UDim2New(1, -1, 1, -3),
-                ImageTransparency = 0,
-                Visible = false,
-                AnchorPoint = Vector2New(0.5, 0.5),
-                Image = "rbxassetid://135757045959142",
-                BackgroundTransparency = 1,
-                Position = UDim2New(0.5, -1, 0.5, 0),
-                ZIndex = 5,
+                AnchorPoint = Vector2New(0, 0.5),
+                Position = UDim2New(0, 2, 0.5, 0),
+                Size = UDim2New(0, 11, 0, 11),
                 BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                ZIndex = 7,
+                BackgroundColor3 = FromRGB(150, 150, 165)
+            })
+
+            Instances:Create("UICorner", {
+                Parent = Items["Thumb"].Instance,
+                CornerRadius = UDimNew(1, 0)
+            })
+
+            -- Invisible legacy alias — historically :Check was toggled to
+            -- flip the state icon; we now animate Thumb instead.
+            Items["Check"] = Instances:Create("Frame", {
+                Parent = Items["Indicator"].Instance,
+                Name = "\0",
+                Size = UDim2New(0, 0, 0, 0),
+                Visible = false,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             }) 
 
@@ -2487,7 +2529,7 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.6000000238418579,
                 ImageColor3 = Library.Theme.Accent,
-                Size = UDim2New(1, 15, 1, 15),
+                Size = UDim2New(1, 22, 1, 18),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Shadow"]:AddToTheme({ImageColor3 = "Accent"})
         end
@@ -2517,7 +2559,7 @@ local Library do
 
                 Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
                 Items["Text"]:Tween(nil, {TextTransparency = 0})
-                Items["Check"].Instance.Visible = true 
+                Items["Thumb"]:Tween("Slide", {Position = UDim2New(1, -13, 0.5, 0), BackgroundColor3 = FromRGB(255, 255, 255)})
                 Items["Shadow"]:Tween(nil, {ImageTransparency = 0.5})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme["Light Accent"]})
             else
@@ -2526,7 +2568,7 @@ local Library do
 
                 Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
                 Items["Text"]:Tween(nil, {TextTransparency = 0.5})
-                Items["Check"].Instance.Visible = false 
+                Items["Thumb"]:Tween("Slide", {Position = UDim2New(0, 2, 0.5, 0), BackgroundColor3 = FromRGB(150, 150, 165)})
                 Items["Shadow"]:Tween(nil, {ImageTransparency = 1})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme.Border})
             end
@@ -3301,10 +3343,13 @@ local Library do
                 Items["MainFrame"]:MakeResizeable(Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset), Vector2New(9999, 9999))
             end
 
+            -- Deeper, wider drop shadow so the window feels like it's floating
+            -- above the game world rather than pasted onto it. Larger spread
+            -- (70→110) and lower transparency (0.35→0.2) both contribute.
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["MainFrame"].Instance,
                 ImageColor3 = FromRGB(0, 0, 0),
-                ImageTransparency = 0.35,
+                ImageTransparency = 0.2,
                 AnchorPoint = Vector2New(0.5, 0.5),
                 Image = "rbxassetid://112971167999062",
                 ZIndex = -1,
@@ -3316,9 +3361,31 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.7,
                 Name = "\0",
-                Size = UDim2New(1, 70, 1, 70),
+                Size = UDim2New(1, 110, 1, 110),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
+
+            -- Second, tighter accent-tinted halo sitting just outside the
+            -- window edge — gives the frame a very subtle purple bloom that
+            -- ties it to the accent theme without being loud.
+            Instances:Create("ImageLabel", {
+                Parent = Items["MainFrame"].Instance,
+                Name = "\0",
+                ImageColor3 = Library.Theme.Accent,
+                ImageTransparency = 0.75,
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Image = "rbxassetid://112971167999062",
+                ZIndex = -2,
+                BorderSizePixel = 0,
+                SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+                ScaleType = Enum.ScaleType.Slice,
+                BorderColor3 = FromRGB(0, 0, 0),
+                BackgroundTransparency = 1,
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                SliceScale = 0.75,
+                Size = UDim2New(1, 50, 1, 50),
+                BackgroundColor3 = FromRGB(255, 255, 255)
+            }):AddToTheme({ImageColor3 = "Accent"})
 
             Items["Sidebar"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
@@ -3343,15 +3410,15 @@ local Library do
                 }
             })
 
-            -- Sidebar accent bar: taller + slightly thicker, with a soft
-            -- accent-tinted halo behind it so the active-page indicator
-            -- pops more against the dark sidebar.
+            -- Beefier active-page indicator: thicker (4px) and taller (28px)
+            -- pill anchored to the left edge, with a much brighter accent
+            -- halo behind it. Reads clearly at a glance without dominating.
             Items["PageAccent"] = Instances:Create("Frame", {
                 Parent = Items["Sidebar"].Instance,
                 Name = "\0",
                 AnchorPoint = Vector2New(0, 0.5),
                 Position = UDim2New(0, 0, 0, 0),
-                Size = UDim2New(0, 3, 0, 22),
+                Size = UDim2New(0, 4, 0, 28),
                 BorderColor3 = FromRGB(0, 0, 0),
                 BorderSizePixel = 0,
                 ZIndex = 4,
@@ -3361,7 +3428,7 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["PageAccent"].Instance,
-                CornerRadius = UDimNew(0, 2)
+                CornerRadius = UDimNew(1, 0)
             })
 
             Instances:Create("ImageLabel", {
@@ -3369,13 +3436,13 @@ local Library do
                 Name = "\0",
                 AnchorPoint = Vector2New(0.5, 0.5),
                 Position = UDim2New(0.5, 0, 0.5, 0),
-                Size = UDim2New(1, 14, 1, 10),
+                Size = UDim2New(1, 22, 1, 16),
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
                 BorderColor3 = FromRGB(0, 0, 0),
                 Image = "rbxassetid://112971167999062",
                 ImageColor3 = Library.Theme.Accent,
-                ImageTransparency = 0.35,
+                ImageTransparency = 0.25,
                 ScaleType = Enum.ScaleType.Slice,
                 SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
                 SliceScale = 0.6,
@@ -3456,7 +3523,7 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["MainFrame"].Instance,
-                CornerRadius = UDimNew(0, 6)
+                CornerRadius = UDimNew(0, 8)
             }) 
 
             Items["Avatar"] = Instances:Create("ImageLabel", {
@@ -4060,19 +4127,22 @@ local Library do
         }
 
         local Items = { } do 
+            -- Pill-shaped subpage tab: slightly wider (108), bold font for
+            -- clearer hierarchy, softer inactive state (0.5 → 0.55) so the
+            -- active tab stands out more against its siblings.
             Items["Inactive"] = Instances:Create("TextButton", {
                 Parent = SubPage.Page.Items["SubPages"].Instance,
-                FontFace = Library.Font,
+                FontFace = Library.BoldFont,
                 TextColor3 = FromRGB(255, 255, 255),
-                TextTransparency = 0.5,
+                TextTransparency = 0.55,
                 Text = SubPage.Name,
                 AutoButtonColor = false,
                 BorderColor3 = FromRGB(0, 0, 0),
                 Name = "\0",
-                Size = UDim2New(0, 100, 1, 0),
+                Size = UDim2New(0, 108, 1, 0),
                 BorderSizePixel = 0,
                 ZIndex = 3,
-                TextSize = 14,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(11, 11, 11)
             })  Items["Inactive"]:AddToTheme({TextColor3 = "Text", BackgroundColor3 = "Inline"})
 
@@ -4087,6 +4157,8 @@ local Library do
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             })  Items["UIStroke"]:AddToTheme({Color = "Border"})
 
+            -- Richer accent glow behind the active pill so it reads like a
+            -- lit-up button rather than a plain colour swap.
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["Inactive"].Instance,
                 Visible = true,
@@ -4103,7 +4175,7 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.6000000238418579,
                 ImageColor3 = Library.Theme.Accent,
-                Size = UDim2New(1, 30, 1, 30),
+                Size = UDim2New(1, 40, 1, 40),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Shadow"]:AddToTheme({ImageColor3 = "Accent"})
 
@@ -4206,13 +4278,13 @@ local Library do
                 Items["UIStroke"]:ChangeItemTheme({Color = "Light Accent"})
 
                 Items["Inactive"]:Tween(nil, {TextTransparency = 0, BackgroundColor3 = Library.Theme.Accent})
-                Items["Shadow"]:Tween(nil, {ImageTransparency = 0.6})
+                Items["Shadow"]:Tween(nil, {ImageTransparency = 0.45})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme["Light Accent"]})
             else
                 Items["Inactive"]:ChangeItemTheme({TextColor3 = "Text", BackgroundColor3 = "Inline"})
                 Items["UIStroke"]:ChangeItemTheme({Color = "Border"})
 
-                Items["Inactive"]:Tween(nil, {TextTransparency = 0.5, BackgroundColor3 = Library.Theme.Inline})
+                Items["Inactive"]:Tween(nil, {TextTransparency = 0.55, BackgroundColor3 = Library.Theme.Inline})
                 Items["Shadow"]:Tween(nil, {ImageTransparency = 1})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme.Border})
             end
@@ -4334,7 +4406,7 @@ local Library do
                 Parent = Section.Side:lower() == "left" and Section.Page.Items["Left"].Instance or Section.Page.Items["Right"].Instance,
                 BorderSizePixel = 0,
                 Name = "\0",
-                Size = UDim2New(1, 0, 0, 45),
+                Size = UDim2New(1, 0, 0, 48),
                 BorderColor3 = FromRGB(0, 0, 0),
                 ZIndex = 4,
                 AutomaticSize = Enum.AutomaticSize.Y,
@@ -4347,18 +4419,17 @@ local Library do
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             }):AddToTheme({Color = "Border"})
 
-            -- Subtle gradient behind section header: lighter at top, fades to
-            -- match Background further down. Purely visual depth cue — the
-            -- BackgroundTransparency stays 1 on the Section so this gradient
-            -- overlays the theme colour rather than replacing it.
+            -- Richer header gradient: taller (32px) and more visible (0.9 vs
+            -- 0.94) so the header sits distinctly above the content area
+            -- without harsh separator lines. Adds depth without heaviness.
             Items["HeaderGradient"] = Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
                 Name = "\0",
                 BackgroundColor3 = FromRGB(255, 255, 255),
-                BackgroundTransparency = 0.94,
+                BackgroundTransparency = 0.9,
                 BorderSizePixel = 0,
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 0, 0, 28),
+                Size = UDim2New(1, 0, 0, 32),
                 Position = UDim2New(0, 0, 0, 0),
                 ZIndex = 4,
             })
@@ -4369,6 +4440,11 @@ local Library do
                     NumSequenceKeypoint(0, 0),
                     NumSequenceKeypoint(1, 1),
                 },
+            })
+
+            Instances:Create("UICorner", {
+                Parent = Items["HeaderGradient"].Instance,
+                CornerRadius = UDimNew(0, 6)
             })
 
             Items["Text"] = Instances:Create("TextLabel", {
@@ -4388,13 +4464,14 @@ local Library do
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
-            -- Section accent bar: taller (14px), rounded corners on both
-            -- ends, sits slightly inset from the section edge.
+            -- Section accent bar: taller (16px) with a rounded pill shape.
+            -- Anchored inside the header height so it reads as an accent
+            -- marker for the section title without cutting the header edge.
             Items["AccentBar"] = Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
-                Size = UDim2New(0, 3, 0, 14),
+                Size = UDim2New(0, 3, 0, 16),
                 Name = "\0",
-                Position = UDim2New(0, 0, 0, 7),
+                Position = UDim2New(0, 0, 0, 6),
                 BorderColor3 = FromRGB(0, 0, 0),
                 ZIndex = 5,
                 BorderSizePixel = 0,
@@ -4403,14 +4480,35 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["AccentBar"].Instance,
-                CornerRadius = UDimNew(0, 2)
+                CornerRadius = UDimNew(1, 0)
             })
+
+            -- Accent-tinted halo behind the pill for that soft, glowing
+            -- indicator feel — mirrors the sidebar page accent styling.
+            Instances:Create("ImageLabel", {
+                Parent = Items["AccentBar"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(1, 10, 1, 6),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                Image = "rbxassetid://112971167999062",
+                ImageColor3 = Library.Theme.Accent,
+                ImageTransparency = 0.5,
+                ScaleType = Enum.ScaleType.Slice,
+                SliceCenter = RectNew(Vector2New(112, 112), Vector2New(147, 147)),
+                SliceScale = 0.6,
+                ZIndex = 4,
+                BackgroundColor3 = FromRGB(255, 255, 255),
+            }):AddToTheme({ImageColor3 = "Accent"})
 
             Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
                 Size = UDim2New(1, -8, 0, 1),
                 Name = "\0",
-                Position = UDim2New(0, 4, 0, 27),
+                Position = UDim2New(0, 4, 0, 29),
                 BorderColor3 = FromRGB(0, 0, 0),
                 ZIndex = 4,
                 BorderSizePixel = 0,
@@ -4422,7 +4520,7 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 Name = "\0",
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 10, 0, 38),
+                Position = UDim2New(0, 10, 0, 40),
                 Size = UDim2New(1, -20, 0, 0),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y,
@@ -4431,18 +4529,18 @@ local Library do
 
             Instances:Create("UIListLayout", {
                 Parent = Items["Content"].Instance,
-                Padding = UDimNew(0, 7),
+                Padding = UDimNew(0, 8),
                 SortOrder = Enum.SortOrder.LayoutOrder
             }) 
 
             Items["BottomPadding"] = Instances:Create("UIPadding", {
                 Parent = Items["Section"].Instance,
-                PaddingBottom = UDimNew(0, 12)
+                PaddingBottom = UDimNew(0, 14)
             }) 
 
             Instances:Create("UICorner", {
                 Parent = Items["Section"].Instance,
-                CornerRadius = UDimNew(0, 5)
+                CornerRadius = UDimNew(0, 6)
             }) 
 
             Items["Chevron"] = Instances:Create("ImageLabel", {
@@ -4538,13 +4636,16 @@ local Library do
                 BackgroundColor3 = FromRGB(255, 255, 255)
             }) 
 
+            -- Pill-style switch track. Wider than the old 16x16 checkbox so
+            -- the sliding thumb has room to travel; short (15px) so it still
+            -- fits comfortably on the 15px toggle row.
             Items["Indicator"] = Instances:Create("Frame", {
                 Parent = Items["Toggle"].Instance,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(1, 0.5),
                 Name = "\0",
                 Position = UDim2New(1, 0, 0.5, 0),
-                Size = UDim2New(0, 16, 0, 16),
+                Size = UDim2New(0, 28, 0, 15),
                 ZIndex = 5,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(20, 20, 28)
@@ -4558,25 +4659,41 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["Indicator"].Instance,
-                CornerRadius = UDimNew(0, 4)
+                CornerRadius = UDimNew(1, 0)
             }) 
 
-            Items["Check"] = Instances:Create("ImageLabel", {
+            -- Sliding thumb — off state parks it on the left, :Set tweens
+            -- it to the right when the toggle turns on.
+            Items["Thumb"] = Instances:Create("Frame", {
                 Parent = Items["Indicator"].Instance,
-                ImageColor3 = FromRGB(0, 0, 0),
-                ScaleType = Enum.ScaleType.Fit,
-                BorderColor3 = FromRGB(0, 0, 0),
                 Name = "\0",
-                Size = UDim2New(1, -3, 1, -3),
-                Visible = false,
-                AnchorPoint = Vector2New(0.5, 0.5),
-                Image = "rbxassetid://135757045959142",
-                BackgroundTransparency = 1,
-                Position = UDim2New(0.5, -1, 0.5, -1),
-                ZIndex = 5,
+                AnchorPoint = Vector2New(0, 0.5),
+                Position = UDim2New(0, 2, 0.5, 0),
+                Size = UDim2New(0, 11, 0, 11),
                 BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
+                ZIndex = 7,
+                BackgroundColor3 = FromRGB(150, 150, 165)
+            })
+
+            Instances:Create("UICorner", {
+                Parent = Items["Thumb"].Instance,
+                CornerRadius = UDimNew(1, 0)
+            })
+
+            -- Kept as an invisible legacy alias — external scripts / older
+            -- callers still reference Items["Check"].Instance.Visible; we
+            -- just don't render anything through it anymore.
+            Items["Check"] = Instances:Create("Frame", {
+                Parent = Items["Indicator"].Instance,
+                Name = "\0",
+                Size = UDim2New(0, 0, 0, 0),
+                Visible = false,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                BorderColor3 = FromRGB(0, 0, 0),
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  
+            })
 
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["Indicator"].Instance,
@@ -4594,7 +4711,7 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.6000000238418579,
                 ImageColor3 = Library.Theme.Accent,
-                Size = UDim2New(1, 15, 1, 15),
+                Size = UDim2New(1, 22, 1, 18),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Shadow"]:AddToTheme({ImageColor3 = "Accent"})
 
@@ -4636,7 +4753,7 @@ local Library do
 
                 Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
                 Items["Text"]:Tween(nil, {TextTransparency = 0})
-                Items["Check"].Instance.Visible = true 
+                Items["Thumb"]:Tween("Slide", {Position = UDim2New(1, -13, 0.5, 0), BackgroundColor3 = FromRGB(255, 255, 255)})
                 Items["Shadow"]:Tween(nil, {ImageTransparency = 0.5})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme["Light Accent"]})
             else
@@ -4645,7 +4762,7 @@ local Library do
 
                 Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
                 Items["Text"]:Tween(nil, {TextTransparency = 0.5})
-                Items["Check"].Instance.Visible = false
+                Items["Thumb"]:Tween("Slide", {Position = UDim2New(0, 2, 0.5, 0), BackgroundColor3 = FromRGB(150, 150, 165)})
                 Items["Shadow"]:Tween(nil, {ImageTransparency = 1})
                 Items["UIStroke"]:Tween(nil, {Color = Library.Theme.Border})
             end
@@ -4748,7 +4865,9 @@ local Library do
                 
                     local XPosition = (ButtonSize.X + Spacing) * Column - Spacing - ButtonSize.X
                 
-                    SubItems["KeyButton"].Instance.Position = UDim2New(1, Index == 1 and -XPosition - 24 or -XPosition, 0.5, 0)
+                    -- Same story for keybinds pinned to a toggle: clear the
+                    -- 28px pill switch instead of the old 16px checkbox.
+                    SubItems["KeyButton"].Instance.Position = UDim2New(1, Index == 1 and -XPosition - 36 or -XPosition, 0.5, 0)
                 end
 
                 CalculateCount(Keybind.Count)
@@ -4983,23 +5102,36 @@ local Library do
         local Items = { } do
             Items["Button"] = Instances:Create("TextButton", {
                 Parent = Button.Section.Items["Content"].Instance,
-                FontFace = Library.Font,
+                FontFace = Library.BoldFont,
                 TextColor3 = FromRGB(255, 255, 255),
                 BorderColor3 = FromRGB(0, 0, 0),
                 Text = Button.Name,
                 AutoButtonColor = false,
                 Name = "\0",
                 BorderSizePixel = 0,
-                Size = UDim2New(1, 0, 0, 20),
+                Size = UDim2New(1, 0, 0, 22),
                 ZIndex = 4,
-                TextSize = 14,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(11, 11, 11)
             })  Items["Button"]:AddToTheme({BackgroundColor3 = "Element", TextColor3 = "Text"})
 
             Instances:Create("UICorner", {
                 Parent = Items["Button"].Instance,
-                CornerRadius = UDimNew(0, 3)
+                CornerRadius = UDimNew(0, 5)
             }) 
+
+            -- Vertical gradient overlay so the button reads with a slight
+            -- bevel — brighter at the top edge, richer at the bottom. Kept
+            -- subtle (transparency 0.94→1) so it doesn't overpower the
+            -- underlying Element theme colour or an accent press state.
+            Instances:Create("UIGradient", {
+                Parent = Items["Button"].Instance,
+                Rotation = 90,
+                Color = RGBSequence{
+                    RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
+                    RGBSequenceKeypoint(1, FromRGB(220, 220, 235)),
+                },
+            })
 
             Items["UIStroke"] = Instances:Create("UIStroke", {
                 Parent = Items["Button"].Instance,
@@ -5045,18 +5177,18 @@ local Library do
                 BackgroundTransparency = 1,
                 Name = "\0",
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 0, 0, 20),
+                Size = UDim2New(1, 0, 0, 22),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
 
             Items["Button"].Instance.Parent = ButtonHolder.Instance
-            Items["Button"].Instance.Size =  UDim2New(0.48, 1, 0, 20)
+            Items["Button"].Instance.Size =  UDim2New(0.48, 1, 0, 22)
 
             local SubItems = { } do
                 SubItems["SubButton"] = Instances:Create("TextButton", {
                     Parent = ButtonHolder.Instance,
-                    FontFace = Library.Font,
+                    FontFace = Library.BoldFont,
                     TextColor3 = FromRGB(255, 255, 255),
                     BorderColor3 = FromRGB(0, 0, 0),
                     Text = SubButton.Name,
@@ -5065,16 +5197,27 @@ local Library do
                     BorderSizePixel = 0,
                     Name = "\0",
                     Position = UDim2New(1, 0, 0, 0),
-                    Size = UDim2New(0.48, 1, 0, 20),
+                    Size = UDim2New(0.48, 1, 0, 22),
                     ZIndex = 4,
-                    TextSize = 14,
+                    TextSize = 13,
                     BackgroundColor3 = FromRGB(11, 11, 11)
                 })  SubItems["SubButton"]:AddToTheme({BackgroundColor3 = "Element", TextColor3 = "Text"})
 
                 Instances:Create("UICorner", {
                     Parent = SubItems["SubButton"].Instance,
-                    CornerRadius = UDimNew(0, 3)
+                    CornerRadius = UDimNew(0, 5)
                 }) 
+
+                -- Same top-highlight gradient as the primary Button so pairs
+                -- share the same visual language on a shared row.
+                Instances:Create("UIGradient", {
+                    Parent = SubItems["SubButton"].Instance,
+                    Rotation = 90,
+                    Color = RGBSequence{
+                        RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
+                        RGBSequenceKeypoint(1, FromRGB(220, 220, 235)),
+                    },
+                })
 
                 SubItems["UIStroke"] = Instances:Create("UIStroke", {
                     Parent = SubItems["SubButton"].Instance,
@@ -5236,13 +5379,15 @@ local Library do
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["ValueInput"]:AddToTheme({TextColor3 = "Accent"})
 
+            -- Track: taller (5px) with rounder corners so the filled accent
+            -- reads as a proper pill instead of a hairline sliver.
             Items["RealSlider"] = Instances:Create("Frame", {
                 Parent = Items["Slider"].Instance,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(0, 1),
                 Name = "\0",
                 Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, 0, 0, 4),
+                Size = UDim2New(1, 0, 0, 5),
                 ZIndex = 5,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(20, 20, 28)
@@ -5250,8 +5395,19 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["RealSlider"].Instance,
-                CornerRadius = UDimNew(0, 2)
-            }) 
+                CornerRadius = UDimNew(1, 0)
+            })
+
+            -- Subtle inner depth: a darker vertical gradient over the track
+            -- so it feels recessed against the section background.
+            Instances:Create("UIGradient", {
+                Parent = Items["RealSlider"].Instance,
+                Rotation = 90,
+                Transparency = NumSequence{
+                    NumSequenceKeypoint(0, 0.2),
+                    NumSequenceKeypoint(1, 0),
+                }
+            })
 
             Items["Accent"] = Instances:Create("Frame", {
                 Parent = Items["RealSlider"].Instance,
@@ -5263,10 +5419,26 @@ local Library do
                 BackgroundColor3 = Library.Theme.Accent
             })  Items["Accent"]:AddToTheme({BackgroundColor3 = "Accent"})
 
+            Instances:Create("UICorner", {
+                Parent = Items["Accent"].Instance,
+                CornerRadius = UDimNew(1, 0)
+            })
+
+            -- Subtle depth: multiply the fill down slightly toward the
+            -- bottom so the top edge appears highlighted against the track.
+            Instances:Create("UIGradient", {
+                Parent = Items["Accent"].Instance,
+                Rotation = 90,
+                Color = RGBSequence{
+                    RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
+                    RGBSequenceKeypoint(1, FromRGB(215, 215, 230)),
+                },
+            })
+
             Items["Shadow"] = Instances:Create("ImageLabel", {
                 Parent = Items["Accent"].Instance,
                 ImageColor3 = Library.Theme.Accent,
-                ImageTransparency = 0.6800000071525574,
+                ImageTransparency = 0.55,
                 AnchorPoint = Vector2New(0.5, 0.5),
                 Image = "rbxassetid://112971167999062",
                 ZIndex = 4,
@@ -5278,7 +5450,7 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.6000000238418579,
                 Name = "\0",
-                Size = UDim2New(1, 15, 1, 15),
+                Size = UDim2New(1, 22, 1, 22),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Shadow"]:AddToTheme({ImageColor3 = "Accent"})
 
@@ -5296,13 +5468,13 @@ local Library do
                 Size = UDim2New(0, 15, 0, 15),
                 ZIndex = 5,
                 TextSize = 14,
-                BackgroundColor3 = Library.Theme.Accent
-            })  Items["Drag"]:AddToTheme({BackgroundColor3 = "Accent"})
+                BackgroundColor3 = FromRGB(255, 255, 255)
+            })
 
             Items["Shadow2"] = Instances:Create("ImageLabel", {
                 Parent = Items["Drag"].Instance,
                 ImageColor3 = Library.Theme.Accent,
-                ImageTransparency = 0.6800000071525574,
+                ImageTransparency = 0.5,
                 AnchorPoint = Vector2New(0.5, 0.5),
                 Image = "rbxassetid://112971167999062",
                 ZIndex = 4,
@@ -5314,14 +5486,33 @@ local Library do
                 Position = UDim2New(0.5, 0, 0.5, 0),
                 SliceScale = 0.6000000238418579,
                 Name = "\0",
-                Size = UDim2New(1, 15, 1, 15),
+                Size = UDim2New(1, 20, 1, 20),
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Shadow2"]:AddToTheme({ImageColor3 = "Accent"})
 
             Instances:Create("UICorner", {
                 Parent = Items["Drag"].Instance,
                 CornerRadius = UDimNew(1, 0)
-            }) 
+            })
+
+            -- Accent-tinted ring inside the white thumb — visually ties the
+            -- handle to the filled track and gives it a two-tone finish.
+            Items["DragInner"] = Instances:Create("Frame", {
+                Parent = Items["Drag"].Instance,
+                Name = "\0",
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(0, 6, 0, 6),
+                BorderColor3 = FromRGB(0, 0, 0),
+                BorderSizePixel = 0,
+                ZIndex = 6,
+                BackgroundColor3 = Library.Theme.Accent,
+            })  Items["DragInner"]:AddToTheme({BackgroundColor3 = "Accent"})
+
+            Instances:Create("UICorner", {
+                Parent = Items["DragInner"].Instance,
+                CornerRadius = UDimNew(1, 0)
+            })
         end
 
         function Slider:Get()
@@ -5549,8 +5740,12 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["OptionHolder"].Instance,
-                CornerRadius = UDimNew(0, 4)
+                CornerRadius = UDimNew(0, 6)
             })
+
+            -- Soft accent-tinted drop shadow behind the popup so it reads
+            -- as a distinct floating surface hovering over the section.
+            Library:AddDropShadow(Items["OptionHolder"], { Padding = 28, Transparency = 0.5, ZIndex = 2499 })
 
             Instances:Create("UIStroke", {
                 Parent = Items["OptionHolder"].Instance,
@@ -5607,7 +5802,7 @@ local Library do
 
                 Instances:Create("UICorner", {
                     Parent = Items["Search"].Instance,
-                    CornerRadius = UDimNew(0, 4)
+                    CornerRadius = UDimNew(0, 5)
                 }) 
 
                 Instances:Create("UIStroke", {
@@ -5618,7 +5813,7 @@ local Library do
 
                 Instances:Create("UIPadding", {
                     Parent = Items["Search"].Instance,
-                    PaddingLeft = UDimNew(0, 6)
+                    PaddingLeft = UDimNew(0, 8)
                 }) 
 
                 Items["Holder"].Instance.Position = UDim2New(0, 5, 0, 30)
@@ -5646,7 +5841,7 @@ local Library do
                 AnchorPoint = Vector2New(0, 1),
                 Name = "\0",
                 Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, 0, 0, 21),
+                Size = UDim2New(1, 0, 0, 23),
                 ZIndex = 4,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(11, 11, 11)
@@ -5660,8 +5855,19 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["RealDropdown"].Instance,
-                CornerRadius = UDimNew(0, 3)
-            }) 
+                CornerRadius = UDimNew(0, 5)
+            })
+
+            -- Same soft top highlight the Button gets so the two controls
+            -- feel like part of the same family.
+            Instances:Create("UIGradient", {
+                Parent = Items["RealDropdown"].Instance,
+                Rotation = 90,
+                Color = RGBSequence{
+                    RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
+                    RGBSequenceKeypoint(1, FromRGB(225, 225, 240)),
+                },
+            })
 
             Items["Value"] = Instances:Create("TextLabel", {
                 Parent = Items["RealDropdown"].Instance,
@@ -5870,28 +6076,28 @@ local Library do
                 Parent = Items["Holder"].Instance,
                 FontFace = Library.Font,
                 TextColor3 = FromRGB(255, 255, 255),
-                TextTransparency = 0.5,
+                TextTransparency = 0.45,
                 Text = Option,
                 Name = "\0",
                 AutoButtonColor = false,
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -5, 0, 22),
+                Size = UDim2New(1, -5, 0, 24),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 ZIndex = 2502,
-                TextSize = 14,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(14, 14, 14)
             })  OptionButton:AddToTheme({TextColor3 = "Text", BackgroundColor3 = "Background"})
 
             Instances:Create("UICorner", {
                 Parent = OptionButton.Instance,
-                CornerRadius = UDimNew(0, 4)
+                CornerRadius = UDimNew(0, 5)
             }) 
 
             local UIPadding = Instances:Create("UIPadding", {
                 Parent = OptionButton.Instance,
-                PaddingLeft = UDimNew(0, 7)
+                PaddingLeft = UDimNew(0, 10)
             }) 
         
             local OptionData = {
@@ -5905,11 +6111,11 @@ local Library do
                 if Status == "Active" then
                     OptionData.Button:ChangeItemTheme({TextColor3 = "Accent"})
                     OptionData.Button:Tween(nil, {TextColor3 = Library.Theme.Accent, BackgroundTransparency = 0, TextTransparency = 0})
-                    UIPadding:Tween(nil, {PaddingLeft = UDimNew(0, 12)})
+                    UIPadding:Tween(nil, {PaddingLeft = UDimNew(0, 14)})
                 else
                     OptionData.Button:ChangeItemTheme({TextColor3 = "Text"})
-                    OptionData.Button:Tween(nil, {TextColor3 = Library.Theme.Text, BackgroundTransparency = 1, TextTransparency = 0.5})
-                    UIPadding:Tween(nil, {PaddingLeft = UDimNew(0, 7)})
+                    OptionData.Button:Tween(nil, {TextColor3 = Library.Theme.Text, BackgroundTransparency = 1, TextTransparency = 0.45})
+                    UIPadding:Tween(nil, {PaddingLeft = UDimNew(0, 10)})
                 end
             end
 
@@ -6147,7 +6353,7 @@ local Library do
                 AnchorPoint = Vector2New(0, 1),
                 Name = "\0",
                 Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, 0, 0, 21),
+                Size = UDim2New(1, 0, 0, 23),
                 ZIndex = 4,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(11, 11, 11)
@@ -6161,8 +6367,19 @@ local Library do
 
             Instances:Create("UICorner", {
                 Parent = Items["RealKeybind"].Instance,
-                CornerRadius = UDimNew(0, 3)
-            }) 
+                CornerRadius = UDimNew(0, 5)
+            })
+
+            -- Match the Button / Dropdown family — soft top highlight so
+            -- every clickable Element-coloured surface reads consistently.
+            Instances:Create("UIGradient", {
+                Parent = Items["RealKeybind"].Instance,
+                Rotation = 90,
+                Color = RGBSequence{
+                    RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
+                    RGBSequenceKeypoint(1, FromRGB(225, 225, 240)),
+                },
+            })
 
             Items["Value"] = Instances:Create("TextLabel", {
                 Parent = Items["RealKeybind"].Instance,
@@ -6175,9 +6392,9 @@ local Library do
                 Size = UDim2New(1, -16, 1, 0),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 4, 0, 1),
+                Position = UDim2New(0, 8, 0, 1),
                 ZIndex = 4,
-                TextSize = 14,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Value"]:AddToTheme({TextColor3 = "Text"})
         end
@@ -6425,21 +6642,33 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 Text = "",
                 ZIndex = 4,
-                Size = UDim2New(1, 0, 0, 21),
+                Size = UDim2New(1, 0, 0, 23),
                 AnchorPoint = Vector2New(0, 1),
                 Position = UDim2New(0, 0, 1, 0),
                 Name = "\0",
                 PlaceholderColor3 = FromRGB(175, 175, 175),
                 TextXAlignment = Enum.TextXAlignment.Left,
                 PlaceholderText = Textbox.Placeholder,
-                TextSize = 14,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(11, 11, 11)
             })  Items["Input"]:AddToTheme({TextColor3 = "Text", BackgroundColor3 = "Element"})
 
             Instances:Create("UICorner", {
                 Parent = Items["Input"].Instance,
-                CornerRadius = UDimNew(0, 3)
+                CornerRadius = UDimNew(0, 5)
             }) 
+
+            -- Subtle inset gradient — brighter at the very top of the field
+            -- so it reads as recessed rather than a flat rectangle. Kept
+            -- almost imperceptible so the placeholder text stays readable.
+            Instances:Create("UIGradient", {
+                Parent = Items["Input"].Instance,
+                Rotation = 90,
+                Color = RGBSequence{
+                    RGBSequenceKeypoint(0, FromRGB(210, 210, 225)),
+                    RGBSequenceKeypoint(1, FromRGB(255, 255, 255)),
+                },
+            })
 
             Instances:Create("UIStroke", {
                 Parent = Items["Input"].Instance,
@@ -6450,7 +6679,7 @@ local Library do
             Instances:Create("UIPadding", {
                 Parent = Items["Input"].Instance,
                 PaddingTop = UDimNew(0, 1),
-                PaddingLeft = UDimNew(0, 4)
+                PaddingLeft = UDimNew(0, 8)
             }) 
         end
 
