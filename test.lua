@@ -5693,12 +5693,12 @@ local Library do
                 Parent = Dropdown.Section.Items["Content"].Instance,
                 Name = "\0",
                 BackgroundTransparency = 1,
-                Size = UDim2New(1, 0, 0, 46),
+                Size = UDim2New(1, 0, 0, 52),
                 BorderColor3 = FromRGB(0, 0, 0),
-                ZIndex = 4,
+                ZIndex = Library.Z.Base + 3,
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            }) 
+            })
 
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Dropdown"].Instance,
@@ -5795,7 +5795,7 @@ local Library do
                     BorderColor3 = FromRGB(0, 0, 0),
                     BorderSizePixel = 0,
                     Position = UDim2New(0, 6, 0, 6),
-                    Size = UDim2New(1, -12, 0, 24),
+                    Size = UDim2New(1, -12, 0, 28),
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = Library.Z.Popover + 2,
                     TextSize = Library.Text.Body,
@@ -5818,8 +5818,8 @@ local Library do
                     PaddingLeft = UDimNew(0, 10)
                 })
 
-                Items["Holder"].Instance.Position = UDim2New(0, 6, 0, 36)
-                Items["Holder"].Instance.Size = UDim2New(1, -12, 1, -42)
+                Items["Holder"].Instance.Position = UDim2New(0, 6, 0, 40)
+                Items["Holder"].Instance.Size = UDim2New(1, -12, 1, -46)
 
                 Items["Search"]:Connect("Changed", function(Property)
                     if Property ~= "Text" then 
@@ -5843,7 +5843,7 @@ local Library do
                 AnchorPoint = Vector2New(0, 1),
                 Name = "\0",
                 Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, 0, 0, 26),
+                Size = UDim2New(1, 0, 0, 32),
                 ZIndex = Library.Z.Base + 3,
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Element
@@ -5863,18 +5863,18 @@ local Library do
             Items["Value"] = Instances:Create("TextLabel", {
                 Parent = Items["RealDropdown"].Instance,
                 FontFace = Library.Font,
-                TextColor3 = FromRGB(255, 255, 255),
-                BorderColor3 = FromRGB(255, 255, 255),
+                TextColor3 = Library.Theme.Text,
+                BorderColor3 = FromRGB(0, 0, 0),
                 Text = "--",
                 Name = "\0",
                 TextTruncate = Enum.TextTruncate.AtEnd,
-                Size = UDim2New(1, -35, 1, 0),
-                Position = UDim2New(0, 4, 0, 1),
+                Size = UDim2New(1, -40, 1, 0),
+                Position = UDim2New(0, 12, 0, 0),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
-                ZIndex = 4,
-                TextSize = 14,
+                ZIndex = Library.Z.Base + 3,
+                TextSize = Library.Text.Body,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Value"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5887,11 +5887,12 @@ local Library do
                 AnchorPoint = Vector2New(1, 0.5),
                 Image = "rbxassetid://86523506890491",
                 BackgroundTransparency = 1,
-                Position = UDim2New(1, -6, 0.5, 0),
-                ZIndex = 4,
+                Position = UDim2New(1, -10, 0.5, 0),
+                ZIndex = Library.Z.Base + 3,
                 BorderSizePixel = 0,
+                ImageColor3 = Library.Theme.MutedText,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["OpenIcon"]:AddToTheme({ImageColor3 = "Image"})
+            })  Items["OpenIcon"]:AddToTheme({ImageColor3 = "MutedText"})
         end
 
         local Debounce = false
@@ -6071,7 +6072,7 @@ local Library do
                 Name = "\0",
                 AutoButtonColor = false,
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -6, 0, 26),
+                Size = UDim2New(1, -6, 0, 32),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
