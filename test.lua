@@ -5656,11 +5656,12 @@ local Library do
             Flag = Data.Flag or Data.flag or Library:NextFlag(),
             Items = Data.Items or Data.items or { "One", "Two", "Three" },
             Default = Data.Default or Data.default or nil,
-            -- Default popup height bumped from 75 (~3 options visible) to
-            -- 200 (~9 options visible). Each option is 24px tall including
-            -- padding; users kept complaining the menu felt cramped and
-            -- required scrolling for lists as short as 4-5 items.
-            MaxSize = Data.MaxSize or Data.maxsize or 200,
+            -- Default popup height. Each row is 32px + 4px gap (~36px per
+            -- option) plus search input + padding, so 360 comfortably fits
+            -- 8-9 rows without needing to scroll. Small dropdowns still
+            -- auto-shrink to their content at open time so they don't leave
+            -- empty scroll space (see :SetOpen).
+            MaxSize = Data.MaxSize or Data.maxsize or 360,
             -- Minimum popup width so options don't clip on narrow buttons.
             -- The dropdown button itself might be 120px wide (short label);
             -- popping open a 120px menu with truncated option text is what
@@ -5960,38 +5961,64 @@ local Library do
 
             Debounce = true 
 
-            if Bool then 
-                -- Reposition the OptionHolder in absolute screen coords each
-                -- time it opens. It now lives on Library.Holder (a top-level
-                -- ScreenGui) instead of inside the Section ScrollingFrame,
-                -- so we can't rely on parent-relative positioning anymore.
-                -- Anchor to the dropdown button below (spilling downward)
-                -- unless there isn't room, in which case flip upward so the
-                -- options never fall off-screen.
+            if Bool then
+                -- Reposition the OptionHolder in absolute screen coords
+                -- each time it opens. It lives on Library.Holder (a top-
+                -- level ScreenGui) instead of inside the Section
+                -- ScrollingFrame, so parent-relative positioning doesn't
+                -- apply.
+                --
+                -- Sizing strategy:
+                --   1. Width from button width + MinWidth, clamped to
+                --      viewport.
+                --   2. Estimate "ideal" content height from actual option
+                --      count so a 2-option dropdown doesn't waste space
+                --      with an empty scroll area, and a 20-option one
+                --      grows toward the MaxSize cap.
+                --   3. Pick the direction (below/above the button) with
+                --      more available room and use up to that room, capped
+                --      by MaxSize and content height.
                 local realDD = Items["RealDropdown"].Instance
                 local absPos = realDD.AbsolutePosition
                 local absSize = realDD.AbsoluteSize
                 local viewport = Camera.ViewportSize
-                -- Popup width: max(button width, MinWidth) but also clamped
-                -- to the viewport so a narrow window doesn't push it out
-                -- of the right edge.
+
                 local menuWidth = math.max(absSize.X, Dropdown.MinWidth or 220)
                 menuWidth = math.min(menuWidth, viewport.X - 20)
-                -- Popup height: MaxSize but never taller than the viewport
-                -- (with a small margin), so a big MaxSize on a small screen
-                -- still fits.
-                local menuHeight = math.min(Dropdown.MaxSize, viewport.Y - 40)
+
+                -- Ideal content height: 12px padding + optional 34px search
+                -- overhead + rowCount * 36 (32 row + 4 gap).
+                local rowCount = 0
+                for _ in pairs(Dropdown.Options) do
+                    rowCount = rowCount + 1
+                end
+                local searchOverhead = Items["Search"] and 34 or 0
+                local contentHeight = 12 + searchOverhead + math.max(rowCount, 1) * 36
+
+                -- Room-aware: whichever side of the button has more room
+                -- wins. Leaves a 12px margin from the viewport edge.
+                local roomBelow = viewport.Y - (absPos.Y + absSize.Y) - 12
+                local roomAbove = absPos.Y - 12
+                local openDownward = roomBelow >= roomAbove
+                local room = openDownward and roomBelow or roomAbove
+
+                local menuHeight = math.min(Dropdown.MaxSize, contentHeight, room)
+                -- Floor so a very cramped viewport still shows something
+                -- usable rather than a 20px sliver.
+                menuHeight = math.max(menuHeight, 140)
+
                 local x = absPos.X
-                -- If MinWidth pushed the popup wider than the button and
-                -- the extra width would spill off the right edge, shift
-                -- the popup left so it stays fully on-screen.
-                if x + menuWidth > viewport.X - 10 then 
+                if x + menuWidth > viewport.X - 10 then
                     x = math.max(10, viewport.X - menuWidth - 10)
                 end
-                local y = absPos.Y + absSize.Y + 2
-                if y + menuHeight + 4 > viewport.Y then 
+
+                local y
+                if openDownward then
+                    y = absPos.Y + absSize.Y + 2
+                else
                     y = absPos.Y - menuHeight - 2
                 end
+
                 Items["OptionHolder"].Instance.Position = UDim2New(0, x, 0, y)
                 Items["OptionHolder"].Instance.Size = UDim2New(0, menuWidth, 0, menuHeight)
                 Items["OptionHolder"].Instance.Visible = true
