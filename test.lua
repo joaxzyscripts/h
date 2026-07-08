@@ -1,4 +1,3 @@
-
 -- Original by joestar._3 on discord
 -- Refined by minifishy for catsgg
 -- https://discord.gg/c5rTVxP5KD
@@ -603,19 +602,19 @@ local Library do
             local SMOOTH = 0.35 -- 0 = instant follow, 1 = heavy smoothing
 
             local ResizeButton = Instances:Create("TextButton", {
-				Parent = Gui,
-				AnchorPoint = Vector2New(1, 1),
-				BorderColor3 = FromRGB(0, 0, 0),
-				Size = UDim2New(0, 8, 0, 8),
-				Position = UDim2New(1, 0, 1, 0),
+                Parent = Gui,
+                AnchorPoint = Vector2New(1, 1),
+                BorderColor3 = FromRGB(0, 0, 0),
+                Size = UDim2New(0, 10, 0, 10),
+                Position = UDim2New(1, 0, 1, 0),
                 Name = "\0",
-				BorderSizePixel = 0,
-				BackgroundTransparency = 1,
-				AutoButtonColor = false,
-                ZIndex = 2000,
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                AutoButtonColor = false,
+                ZIndex = Library.Z.Popover,
                 Visible = true,
                 Text = ""
-			})
+            })
 
             ResizeButton:Connect("InputBegan", function(Input)
                 if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -2768,13 +2767,13 @@ local Library do
                     continue
                 end
 
-                if Colorpicker.IsOpen then 
+                if Colorpicker.IsOpen then
                     if not StringFind(Value.ClassName, "UI") then
-                        Value.ZIndex = 1001
+                        Value.ZIndex = Library.Z.Popover + 1
                     end
                 else
                     if not StringFind(Value.ClassName, "UI") then
-                        Value.ZIndex = 1
+                        Value.ZIndex = Library.Z.Base
                     end
                 end
 
@@ -3784,10 +3783,10 @@ local Library do
                 AnchorPoint = Vector2New(0, 0),
                 Position = UDim2New(0, 12, 0, 90),
                 Size = UDim2New(0, 48, 0, 48),
-                BackgroundColor3 = FromRGB(14, 14, 14),
+                BackgroundColor3 = Library.Theme.Background,
                 BorderColor3 = FromRGB(0, 0, 0),
                 BorderSizePixel = 0,
-                ZIndex = 9000,
+                ZIndex = Library.Z.Overlay,
             })  MenuButton:AddToTheme({BackgroundColor3 = "Background"})
 
             Instances:Create("UICorner", {
@@ -3802,7 +3801,7 @@ local Library do
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             })  MenuStroke:AddToTheme({Color = "Accent"})
 
-            Library:AddDropShadow(MenuButton, { Padding = 24, Transparency = 0.55, ZIndex = 8999 })
+            Library:AddDropShadow(MenuButton, { Padding = 24, Transparency = 0.55, ZIndex = Library.Z.Overlay - 1 })
 
             local MenuLogo = Instances:Create("ImageLabel", {
                 Parent = MenuButton.Instance,
@@ -3815,7 +3814,7 @@ local Library do
                 Image = "rbxassetid://" .. Window.Logo,
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
-                ZIndex = 9001,
+                ZIndex = Library.Z.Overlay + 1,
                 BackgroundColor3 = FromRGB(255, 255, 255),
             })  MenuLogo:AddToTheme({ImageColor3 = "Image"})
 
@@ -5783,44 +5782,44 @@ local Library do
             }) 
 
             local UseDropdownSearch = Data.Search or Data.search or (#Dropdown.Items > 8)
-            if UseDropdownSearch then 
+            if UseDropdownSearch then
                 Items["Search"] = Instances:Create("TextBox", {
                     Parent = Items["OptionHolder"].Instance,
                     FontFace = Library.Font,
-                    TextColor3 = FromRGB(255, 255, 255),
-                    PlaceholderColor3 = FromRGB(175, 175, 175),
+                    TextColor3 = Library.Theme.Text,
+                    PlaceholderColor3 = Library.Theme.FaintText,
                     PlaceholderText = "Search",
                     Text = "",
                     Name = "\0",
                     ClearTextOnFocus = false,
                     BorderColor3 = FromRGB(0, 0, 0),
                     BorderSizePixel = 0,
-                    Position = UDim2New(0, 5, 0, 5),
-                    Size = UDim2New(1, -10, 0, 20),
+                    Position = UDim2New(0, 6, 0, 6),
+                    Size = UDim2New(1, -12, 0, 24),
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    ZIndex = 2502,
-                    TextSize = 14,
-                    BackgroundColor3 = FromRGB(14, 14, 14)
-                })  Items["Search"]:AddToTheme({BackgroundColor3 = "Background", TextColor3 = "Text"})
+                    ZIndex = Library.Z.Popover + 2,
+                    TextSize = Library.Text.Body,
+                    BackgroundColor3 = Library.Theme.Background
+                })  Items["Search"]:AddToTheme({BackgroundColor3 = "Background", TextColor3 = "Text", PlaceholderColor3 = "FaintText"})
 
                 Instances:Create("UICorner", {
                     Parent = Items["Search"].Instance,
-                    CornerRadius = UDimNew(0, 5)
-                }) 
+                    CornerRadius = UDimNew(0, Library.Radius.Small)
+                })
 
                 Instances:Create("UIStroke", {
                     Parent = Items["Search"].Instance,
-                    Color = FromRGB(24, 24, 24),
+                    Color = Library.Theme.Border,
                     ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                 }):AddToTheme({Color = "Border"})
 
                 Instances:Create("UIPadding", {
                     Parent = Items["Search"].Instance,
-                    PaddingLeft = UDimNew(0, 8)
-                }) 
+                    PaddingLeft = UDimNew(0, 10)
+                })
 
-                Items["Holder"].Instance.Position = UDim2New(0, 5, 0, 30)
-                Items["Holder"].Instance.Size = UDim2New(1, -10, 1, -35)
+                Items["Holder"].Instance.Position = UDim2New(0, 6, 0, 36)
+                Items["Holder"].Instance.Size = UDim2New(1, -12, 1, -42)
 
                 Items["Search"]:Connect("Changed", function(Property)
                     if Property ~= "Text" then 
